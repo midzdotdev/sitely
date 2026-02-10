@@ -70,7 +70,7 @@ isProject: false
 ## 1. Glossary of Actors
 
 - **Operator** - The entity (you) running the WAPI platform. Manages infrastructure, billing, scraper curation, and platform health.
-- **Scraper Author** - A developer who writes and maintains *site definitions* -- the declarative TS modules that describe how to extract data from a specific website. Contributes via PRs to the monorepo.
+- **Scraper Author** - A developer who writes and maintains _site definitions_ -- the declarative TS modules that describe how to extract data from a specific website. Contributes via PRs to the monorepo.
 - **Consumer** - A developer or application that queries the WAPI service to retrieve structured data or media. Interfaces via REST API, GraphQL, TypeScript client, MCP server, or CLI.
 - **Site** (Source) - A target website from which data is extracted (e.g. wikipedia.org, news.ycombinator.com).
 - **Page** - A specific URL pattern on a site from which data can be extracted (e.g. `/wiki/:title` on Wikipedia). Each page declares a `validate` function to detect blocking/rate-limiting, an `extract` function to pull data, and optionally a `paginate` descriptor.
@@ -208,8 +208,6 @@ flowchart TB
 
     SiteDefRepo -.->|"hot-reload via CD"| Runtime
 ```
-
-
 
 ### Shared Service Layer
 
@@ -354,8 +352,6 @@ erDiagram
     api_keys ||--o{ usage_logs : "used_in"
     cached_resources ||--o{ media : "references"
 ```
-
-
 
 ### Key Design Decisions
 
@@ -694,8 +690,8 @@ Since site definitions are community-contributed code, they run in a sandbox:
 
 Many resources span multiple pages: HN front page across 10+ pages, Wikipedia category members, product review lists. Pagination involves two independent concerns:
 
-1. **The scraper author** defines the *mechanics* of pagination (how to find the next page)
-2. **The consumer** controls *how much* data to retrieve (and pay for)
+1. **The scraper author** defines the _mechanics_ of pagination (how to find the next page)
+2. **The consumer** controls _how much_ data to retrieve (and pay for)
 
 ### Scraper Author Interface
 
@@ -922,8 +918,6 @@ sequenceDiagram
     SVC-->>C2: JSON response (same data, from cache)
 ```
 
-
-
 - The "leader" request does the actual work. All waiters receive the same result.
 - Both the leader and waiters are charged tokens (they all received data), but waiters are charged at the cheaper cached-read rate since no additional outbound request was made.
 - If the leader fails, waiters receive the error and can retry independently.
@@ -1066,8 +1060,6 @@ flowchart TD
     ThresholdCheck -->|No| Done[Done]
 ```
 
-
-
 - **Usage counter** per resource (site + type + params), stored in Redis, flushed to Postgres periodically into `resource_popularity`
 - **Tiered thresholds**: resources move between tiers (on-demand, cached, proactively refreshed) based on request frequency
 - **Future ML**: A model trained on usage patterns predicts which new resources will become popular and pre-caches them
@@ -1111,8 +1103,6 @@ flowchart LR
     RateLimiter --> Runtime[Scraper Runtime]
 ```
 
-
-
 ### Crawl Policy
 
 Each site definition declares a crawl policy:
@@ -1155,8 +1145,6 @@ flowchart LR
     Mux --> Store
     Store --> CDN[CDN / Signed URL Serving]
 ```
-
-
 
 - `**ctx.media(url)**` returns a `MediaRef` (an opaque reference). The actual download happens after extraction completes, so the framework can batch and deduplicate.
 - **Stream capture**: For HLS/DASH, the pipeline downloads the manifest, selects the best quality (or consumer-specified quality), downloads all segments, and muxes into a single MP4 via ffmpeg.
@@ -1622,4 +1610,3 @@ The minimum viable product that delivers value to consumers and validates the ar
 - **OpenAPI spec generation**: auto-generate from service layer types for REST API documentation
 - **Streaming pagination**: Server-Sent Events or NDJSON for very large paginated results
 - **Consumer dashboard**: web UI showing usage, billing history, available sites, API key management
-
