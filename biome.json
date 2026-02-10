@@ -1,0 +1,20 @@
+{
+  "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
+  "organizeImports": { "enabled": true },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "complexity": { "noForEach": "off" },
+      "suspicious": { "noExplicitAny": "warn" },
+      "style": { "noNonNullAssertion": "off" }
+    }
+  },
+  "formatter": {
+    "indentStyle": "tab",
+    "lineWidth": 100
+  },
+  "files": {
+    "ignore": ["node_modules", "dist", ".turbo", "fixtures"]
+  }
+}
