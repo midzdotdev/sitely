@@ -1,17 +1,25 @@
-/**
- * Parse all JSON-LD blocks from raw HTML.
- * Returns an array of parsed objects.
- */
-export function parseJsonLd(html: string): Record<string, unknown>[] {
-	const results: Record<string, unknown>[] = [];
-	const regex = /<script\s+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
-	let match: RegExpExecArray | null;
+import type { PageDriver } from "@wapi/page";
 
-	while ((match = regex.exec(html)) !== null) {
-		const content = match[1];
-		if (!content) continue;
+/**
+ * Extract and parse all JSON-LD blocks from a page.
+ *
+ * @remarks
+ * Handles plain objects, arrays, and `@graph` containers. Invalid JSON blocks
+ * are silently skipped.
+ *
+ * @param driver - The page driver to extract JSON-LD from.
+ * @returns An array of parsed JSON-LD objects.
+ */
+export function extractJsonLd(driver: PageDriver): Record<string, unknown>[] {
+	const results: Record<string, unknown>[] = [];
+	const scripts = driver.$$('script[type="application/ld+json"]');
+
+	for (const script of scripts) {
+		const text = script.text().trim();
+		if (!text) continue;
+
 		try {
-			const parsed: unknown = JSON.parse(content);
+			const parsed = JSON.parse(text);
 			if (Array.isArray(parsed)) {
 				for (const item of parsed) {
 					if (item && typeof item === "object") {
@@ -20,19 +28,18 @@ export function parseJsonLd(html: string): Record<string, unknown>[] {
 				}
 			} else if (parsed && typeof parsed === "object") {
 				// Handle @graph
-				const obj = parsed as Record<string, unknown>;
-				if (Array.isArray(obj["@graph"])) {
-					for (const item of obj["@graph"] as unknown[]) {
+				if ("@graph" in parsed && Array.isArray(parsed["@graph"])) {
+					for (const item of parsed["@graph"]) {
 						if (item && typeof item === "object") {
 							results.push(item as Record<string, unknown>);
 						}
 					}
 				} else {
-					results.push(obj);
+					results.push(parsed as Record<string, unknown>);
 				}
 			}
 		} catch {
-			// Silently skip malformed JSON-LD
+			// Skip invalid JSON-LD blocks
 		}
 	}
 
@@ -40,12 +47,31 @@ export function parseJsonLd(html: string): Record<string, unknown>[] {
 }
 
 /**
- * Extract <link rel="canonical"> href from raw HTML.
+ * Filter JSON-LD objects by `@type`.
+ *
+ * @remarks
+ * Handles string and array `@type` values, as well as prefixed types
+ * like `"schema:Article"` and `"https://schema.org/Article"`.
+ *
+ * @param items - The JSON-LD objects to filter.
+ * @param type - The schema.org type name to match (e.g. `"Article"`).
+ * @returns Matching objects.
  */
-export function getCanonicalFromHtml(html: string): string | null {
-	const match = /<link[^>]+rel=["']canonical["'][^>]+href=["']([^"']+)["'][^>]*>/i.exec(html);
-	if (match?.[1]) return match[1];
-	// Also try reversed attribute order
-	const match2 = /<link[^>]+href=["']([^"']+)["'][^>]+rel=["']canonical["'][^>]*>/i.exec(html);
-	return match2?.[1] ?? null;
+export function filterJsonLdByType(
+	items: Record<string, unknown>[],
+	type: string,
+): Record<string, unknown>[] {
+	return items.filter((item) => {
+		const itemType = item["@type"];
+		if (typeof itemType === "string") {
+			return itemType === type || itemType === `schema:${type}` || itemType.endsWith(`/${type}`);
+		}
+		if (Array.isArray(itemType)) {
+			return itemType.some(
+				(t) =>
+					t === type || t === `schema:${type}` || (typeof t === "string" && t.endsWith(`/${type}`)),
+			);
+		}
+		return false;
+	});
 }

@@ -1,92 +1,68 @@
-import { readFileSync } from "node:fs";
-import { join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import {
+	createFixtureLoader,
+	createTestContext,
+	describePageExtraction,
+} from "@wapi/framework/testing";
 import { describe, expect, it } from "vitest";
-import { createFixtureTest } from "@wapi/framework";
 import site from "./index.js";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
+const loadFixture = createFixtureLoader(import.meta.url);
 
 describe("news.ycombinator.com", () => {
-	describe("front page", () => {
-		const html = readFileSync(join(__dirname, "fixtures/front-page.html"), "utf-8");
-
-		it("validates the front page", () => {
-			const t = createFixtureTest({
-				site,
-				html,
-				url: "https://news.ycombinator.com/news",
-			});
-			expect(t.validate("/news")).toBe(true);
-		});
-
-		it("extracts stories from front page", async () => {
-			const t = createFixtureTest({
-				site,
-				html,
-				url: "https://news.ycombinator.com/news",
-			});
-			const data = await t.extract("/news");
-			const stories = data["frontPage"] as Array<Record<string, unknown>>;
-
+	describePageExtraction({
+		site,
+		pageKey: "/news",
+		loadFixture,
+		fixtures: [{ fixture: "front-page.html", url: "https://news.ycombinator.com/news" }],
+		assertExtraction: (result) => {
+			const stories = result.frontPage as Array<Record<string, unknown>>;
 			expect(stories).toHaveLength(3);
-			expect(stories[0]!["id"]).toBe("12345");
-			expect(stories[0]!["title"]).toBe("Show HN: Something Cool");
-			expect(stories[1]!["title"]).toBe("Why Rust is Great");
-		});
+			expect(stories[0].id).toBe("40001");
+			expect(stories[0].title).toBe("Show HN: A cool open source project");
+			expect(stories[0].score).toBe(142);
+			expect(stories[0].author).toBe("dev1");
+			expect(stories[0].commentCount).toBe(87);
+		},
+	});
 
-		it("finds pagination link", () => {
-			const t = createFixtureTest({
-				site,
+	describePageExtraction({
+		site,
+		pageKey: "/item",
+		loadFixture,
+		fixtures: [{ fixture: "item-1.html", url: "https://news.ycombinator.com/item?id=40001" }],
+		assertExtraction: (result) => {
+			const story = result.story as Record<string, unknown>;
+			expect(story.id).toBe("40001");
+			expect(story.title).toBe("Show HN: A cool open source project");
+			expect(story.author).toBe("dev1");
+			expect(story.score).toBe(142);
+
+			const comments = story.comments as Array<Record<string, unknown>>;
+			expect(comments).toHaveLength(2);
+			expect(comments[0].author).toBe("commenter1");
+			expect(comments[0].text).toContain("amazing");
+		},
+	});
+
+	describe("pagination", () => {
+		const html = loadFixture("front-page.html");
+
+		it("detects next page link", () => {
+			const ctx = createTestContext({
 				html,
 				url: "https://news.ycombinator.com/news",
 			});
-			const next = site.pages["/news"]!.paginate!.next(t.ctx);
-			expect(next).toBe("https://news.ycombinator.com/news?p=2");
+			const nextUrl = site.pages["/news"].paginate!.next(ctx);
+			expect(nextUrl).toBe("https://news.ycombinator.com/news?p=2");
 		});
-	});
 
-	describe("story page", () => {
-		const html = readFileSync(join(__dirname, "fixtures/item-1.html"), "utf-8");
-
-		it("validates a story page", () => {
-			const t = createFixtureTest({
-				site,
-				html,
-				url: "https://news.ycombinator.com/item?id=12345",
-				params: { id: "12345" },
+		it("returns null when no next page", () => {
+			const htmlNoMore = html.replace('<a class="morelink" href="/news?p=2">More</a>', "");
+			const ctx = createTestContext({
+				html: htmlNoMore,
+				url: "https://news.ycombinator.com/news",
 			});
-			expect(t.validate("/item")).toBe(true);
+			expect(site.pages["/news"].paginate!.next(ctx)).toBeNull();
 		});
-
-		it("extracts story with comments", async () => {
-			const t = createFixtureTest({
-				site,
-				html,
-				url: "https://news.ycombinator.com/item?id=12345",
-				params: { id: "12345" },
-			});
-			const data = await t.extract("/item");
-			const story = data["story"] as Record<string, unknown>;
-
-			expect(story["title"]).toBe("Show HN: Something Cool");
-			expect(story["author"]).toBe("testuser");
-			expect(story["score"]).toBe(150);
-
-			const comments = story["comments"] as Array<Record<string, unknown>>;
-			expect(comments).toHaveLength(2);
-			expect(comments[0]!["author"]).toBe("commenter1");
-			expect(comments[0]!["text"]).toBe("This is a great project!");
-		});
-	});
-
-	it("rejects a block page", () => {
-		const t = createFixtureTest({
-			site,
-			html: "<html><body>Error</body></html>",
-			url: "https://news.ycombinator.com/news",
-			status: 503,
-		});
-		expect(t.validate("/news")).toBe(false);
 	});
 });

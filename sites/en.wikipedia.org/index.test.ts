@@ -1,53 +1,28 @@
-import { readFileSync } from "node:fs";
-import { join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
-import { createFixtureTest } from "@wapi/framework";
+import { createFixtureLoader, describePageExtraction } from "@wapi/framework/testing";
+import { describe, expect } from "vitest";
 import site from "./index.js";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
+const loadFixture = createFixtureLoader(import.meta.url);
 
 describe("en.wikipedia.org", () => {
-	const html = readFileSync(join(__dirname, "fixtures/wiki-typescript.html"), "utf-8");
-
-	it("validates a real article page", () => {
-		const t = createFixtureTest({
-			site,
-			html,
-			url: "https://en.wikipedia.org/wiki/TypeScript",
-			params: { title: "TypeScript" },
-		});
-		expect(t.validate("/wiki/:title")).toBe(true);
-	});
-
-	it("extracts article data", async () => {
-		const t = createFixtureTest({
-			site,
-			html,
-			url: "https://en.wikipedia.org/wiki/TypeScript",
-			params: { title: "TypeScript" },
-		});
-		const data = await t.extract("/wiki/:title");
-		const article = data["article"] as Record<string, unknown>;
-
-		expect(article["title"]).toBe("TypeScript");
-		expect(article["summary"]).toContain("high-level programming language");
-		expect(article["categories"]).toEqual([
-			"Programming languages",
-			"Microsoft",
-			"TypeScript",
-		]);
-		expect(article["image"]).toBeTruthy();
-	});
-
-	it("rejects a block page", () => {
-		const t = createFixtureTest({
-			site,
-			html: "<html><body><h1>Access Denied</h1></body></html>",
-			url: "https://en.wikipedia.org/wiki/TypeScript",
-			params: { title: "TypeScript" },
-			status: 403,
-		});
-		expect(t.validate("/wiki/:title")).toBe(false);
+	describePageExtraction({
+		site,
+		pageKey: "/wiki/:title",
+		loadFixture,
+		fixtures: [
+			{ fixture: "wiki-typescript.html", url: "https://en.wikipedia.org/wiki/TypeScript" },
+		],
+		assertExtraction: (result) => {
+			const article = result.article as Record<string, unknown>;
+			expect(article.title).toBe("TypeScript");
+			expect(article.summary).toContain("free and open-source");
+			expect(article.categories).toEqual([
+				"Programming languages",
+				"Microsoft software",
+				"TypeScript",
+			]);
+			expect(article.image).not.toBeNull();
+			expect(article.canonical).toBe("https://en.wikipedia.org/wiki/TypeScript");
+		},
 	});
 });

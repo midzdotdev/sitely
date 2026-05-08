@@ -1,50 +1,162 @@
+import { CheerioDriver } from "@wapi/page";
 import { describe, expect, it } from "vitest";
 import { defineSite } from "./define-site.js";
-import { Schema } from "@wapi/schemas";
+import { extractJsonLd, filterJsonLdByType } from "./json-ld.js";
+import { matchPagePattern, matchPattern } from "./test-harness.js";
 
 describe("defineSite", () => {
-	it("preserves the definition object", () => {
+	it("passes through the definition object", () => {
 		const site = defineSite({
-			name: "Test Site",
-			domain: "example.com",
-			normalizeUrl: (url) => url,
-			rateLimit: { maxConcurrent: 1, requestsPerSecond: 1 },
-			resources: {
-				page: {
-					schema: Schema.Article,
-					params: { id: { type: "string", required: true, description: "Page ID" } },
-					resolve: ({ id }) => `/page/${id}`,
-					ttl: "1h",
-				},
-			},
-			pages: {
-				"/page/:id": {
-					provides: ["page"],
-					examples: ["https://example.com/page/1"],
-					validate: (ctx) => ctx.status === 200,
-					extract: async (ctx) => ({ page: { title: ctx.$("#title")?.text() } }),
-				},
-			},
-			crawl: { enabled: false, respectRobotsTxt: true, maxDepth: 0 },
-		});
-
-		expect(site.name).toBe("Test Site");
-		expect(site.domain).toBe("example.com");
-		expect(site.resources["page"]?.schema).toBe("Article");
-	});
-
-	it("returns the definition with correct structure", () => {
-		const site = defineSite({
-			name: "Minimal",
-			domain: "min.com",
-			normalizeUrl: (u) => u,
+			name: "Test",
+			domain: "test.com",
 			rateLimit: { maxConcurrent: 1, requestsPerSecond: 1 },
 			resources: {},
 			pages: {},
-			crawl: { enabled: false, respectRobotsTxt: true, maxDepth: 0 },
 		});
+		expect(site.name).toBe("Test");
+		expect(site.domain).toBe("test.com");
+	});
+});
 
-		expect(site.domain).toBe("min.com");
-		expect(site.crawl.enabled).toBe(false);
+describe("matchPattern", () => {
+	it("matches static paths", () => {
+		expect(matchPattern("/news", "/news")).toEqual({});
+	});
+
+	it("matches parameterized paths", () => {
+		expect(matchPattern("/wiki/:title", "/wiki/TypeScript")).toEqual({
+			title: "TypeScript",
+		});
+	});
+
+	it("decodes URL-encoded params", () => {
+		expect(matchPattern("/wiki/:title", "/wiki/C%2B%2B")).toEqual({
+			title: "C++",
+		});
+	});
+
+	it("returns null for non-matching paths", () => {
+		expect(matchPattern("/wiki/:title", "/about")).toBeNull();
+	});
+
+	it("returns null for wrong segment count on parameterized patterns", () => {
+		expect(matchPattern("/wiki/:title", "/wiki/a/b")).toBeNull();
+	});
+
+	it("matches static prefix for non-parameterized patterns", () => {
+		expect(matchPattern("/news", "/news")).toEqual({});
+	});
+});
+
+describe("matchPagePattern", () => {
+	const site = defineSite({
+		name: "Test",
+		domain: "test.com",
+		rateLimit: { maxConcurrent: 1, requestsPerSecond: 1 },
+		resources: {},
+		pages: {
+			"/wiki/:title": {
+				provides: ["article"],
+				examples: ["https://test.com/wiki/Hello"],
+				validate: () => true,
+				extract: async () => ({}),
+			},
+			"/news": {
+				provides: ["feed"],
+				examples: ["https://test.com/news"],
+				validate: () => true,
+				extract: async () => ({}),
+			},
+		},
+	});
+
+	it("matches a parameterized page", () => {
+		const match = matchPagePattern(site, "https://test.com/wiki/TypeScript");
+		expect(match).toEqual({
+			pageKey: "/wiki/:title",
+			params: { title: "TypeScript" },
+		});
+	});
+
+	it("matches a static page with query params", () => {
+		const match = matchPagePattern(site, "https://test.com/news?p=2");
+		expect(match).toEqual({
+			pageKey: "/news",
+			params: { p: "2" },
+		});
+	});
+
+	it("returns null for unknown URLs", () => {
+		expect(matchPagePattern(site, "https://test.com/about")).toBeNull();
+	});
+});
+
+describe("extractJsonLd", () => {
+	it("extracts JSON-LD from script tags", () => {
+		const html = `
+			<html><body>
+				<script type="application/ld+json">
+					{"@type": "Article", "name": "Test"}
+				</script>
+			</body></html>
+		`;
+		const driver = new CheerioDriver({ rawHtml: html, url: "https://example.com" });
+		const items = extractJsonLd(driver);
+		expect(items).toHaveLength(1);
+		expect(items[0]["@type"]).toBe("Article");
+		expect(items[0].name).toBe("Test");
+	});
+
+	it("handles @graph", () => {
+		const html = `
+			<html><body>
+				<script type="application/ld+json">
+					{"@graph": [{"@type": "Article"}, {"@type": "Person"}]}
+				</script>
+			</body></html>
+		`;
+		const driver = new CheerioDriver({ rawHtml: html, url: "https://example.com" });
+		const items = extractJsonLd(driver);
+		expect(items).toHaveLength(2);
+	});
+
+	it("handles arrays of JSON-LD objects", () => {
+		const html = `
+			<html><body>
+				<script type="application/ld+json">
+					[{"@type": "Article"}, {"@type": "Person"}]
+				</script>
+			</body></html>
+		`;
+		const driver = new CheerioDriver({ rawHtml: html, url: "https://example.com" });
+		expect(extractJsonLd(driver)).toHaveLength(2);
+	});
+
+	it("skips invalid JSON", () => {
+		const html = `
+			<html><body>
+				<script type="application/ld+json">not valid json</script>
+				<script type="application/ld+json">{"@type": "Article"}</script>
+			</body></html>
+		`;
+		const driver = new CheerioDriver({ rawHtml: html, url: "https://example.com" });
+		expect(extractJsonLd(driver)).toHaveLength(1);
+	});
+});
+
+describe("filterJsonLdByType", () => {
+	const items = [
+		{ "@type": "Article", name: "A" },
+		{ "@type": "Person", name: "B" },
+		{ "@type": ["Article", "NewsArticle"], name: "C" },
+	];
+
+	it("filters by exact type", () => {
+		expect(filterJsonLdByType(items, "Article")).toHaveLength(2);
+		expect(filterJsonLdByType(items, "Person")).toHaveLength(1);
+	});
+
+	it("returns empty for unmatched type", () => {
+		expect(filterJsonLdByType(items, "Product")).toHaveLength(0);
 	});
 });

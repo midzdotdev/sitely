@@ -1,7 +1,12 @@
-node_modules/
-dist/
-.turbo/
+node_modules
+dist
+.turbo
 *.tsbuildinfo
 .env
 .env.*
 !.env.example
+docs/api
+docs/sites
+docs/public/playground-data.json
+docs/.vitepress/dist
+docs/.vitepress/cache

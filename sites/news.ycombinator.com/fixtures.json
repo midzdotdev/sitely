@@ -1,0 +1,14 @@
+{
+	"/news": [
+		{
+			"fixture": "front-page.html",
+			"url": "https://news.ycombinator.com/news"
+		}
+	],
+	"/item": [
+		{
+			"fixture": "item-1.html",
+			"url": "https://news.ycombinator.com/item?id=40001"
+		}
+	]
+}

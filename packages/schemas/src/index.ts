@@ -1,34 +1,55 @@
+/**
+ * `@wapi/schemas` provides TypeScript types for common schema.org entities
+ * and the {@link Schema} constant for referencing them by name in site definitions.
+ *
+ * @packageDocumentation
+ */
 export type {
 	Thing,
-	ImageObject,
 	Article,
-	Product,
-	Offer,
 	Person,
 	Organization,
-	ContactPoint,
+	Product,
 	VideoObject,
+	WebPage,
 	ItemList,
 	ListItem,
+	ImageObject,
 	Review,
 	Rating,
 	AggregateRating,
+	SchemaType,
+	SchemaTypeName,
 } from "./types.js";
 
 /**
- * Schema constant for use in site definitions.
- * Maps schema names to their schema.org @type strings.
+ * Namespace constant for referencing schema.org types in site definitions.
+ * Provides autocompletion and type safety over bare string literals.
+ *
+ * @example
+ * ```ts
+ * import { Schema } from "@wapi/schemas";
+ *
+ * const resource = {
+ *   schema: Schema.Article,
+ *   params: { id: { type: "string", required: true } },
+ *   resolve: (p) => `/article/${p.id}`,
+ *   ttl: "1h",
+ * };
+ * ```
  */
 export const Schema = {
-	Thing: "Thing",
-	Article: "Article",
-	Product: "Product",
-	Person: "Person",
-	Organization: "Organization",
-	VideoObject: "VideoObject",
-	ItemList: "ItemList",
-	Review: "Review",
-	ImageObject: "ImageObject",
-} as const;
+	Article: "Article" as const,
+	Person: "Person" as const,
+	Organization: "Organization" as const,
+	Product: "Product" as const,
+	VideoObject: "VideoObject" as const,
+	WebPage: "WebPage" as const,
+	ItemList: "ItemList" as const,
+	ImageObject: "ImageObject" as const,
+	Review: "Review" as const,
+} satisfies Record<string, string>;
 
-export type SchemaType = (typeof Schema)[keyof typeof Schema];
+// Validation
+export { schemaValidators, validateExtraction } from "./validation.js";
+export type { ValidationResult } from "./validation.js";

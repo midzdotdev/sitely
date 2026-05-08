@@ -1,20 +1,38 @@
 {
-  "name": "wapi",
-  "private": true,
-  "scripts": {
-    "build": "turbo build",
-    "dev": "turbo dev",
-    "lint": "turbo lint",
-    "test": "turbo test",
-    "typecheck": "turbo typecheck",
-    "clean": "turbo clean && rm -rf node_modules"
-  },
-  "devDependencies": {
-    "turbo": "^2.3.0",
-    "typescript": "^5.7.2"
-  },
-  "packageManager": "pnpm@9.14.2",
-  "engines": {
-    "node": ">=20"
-  }
+	"name": "wapi",
+	"private": true,
+	"scripts": {
+		"build": "turbo build",
+		"test": "turbo test",
+		"typecheck": "turbo typecheck",
+		"lint": "biome check .",
+		"lint:fix": "biome check --write .",
+		"dev": "turbo dev",
+		"test:validate": "vitest run --config vitest.validate.config.ts",
+		"wapi": "node packages/framework/dist/cli.js",
+		"openapi": "node packages/framework/dist/cli.js openapi",
+		"docs:generate": "typedoc",
+		"docs:catalog": "tsx scripts/generate-site-catalog.ts",
+		"docs:playground": "tsx scripts/generate-playground-data.ts",
+		"docs:dev": "tsx scripts/generate-site-catalog.ts && tsx scripts/generate-playground-data.ts && typedoc && vitepress dev docs",
+		"docs:build": "tsx scripts/generate-site-catalog.ts && tsx scripts/generate-playground-data.ts && typedoc && vitepress build docs",
+		"docs:preview": "vitepress preview docs"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^1.9.4",
+		"@vitest/coverage-v8": "^3.2.4",
+		"turbo": "^2.3.3",
+		"typedoc": "^0.28.17",
+		"typedoc-plugin-markdown": "^4.10.0",
+		"typedoc-vitepress-theme": "^1.1.2",
+		"typescript": "^5.7.3",
+		"tsx": "^4.19.2",
+		"vitepress": "^1.6.4",
+		"vitest": "^3.0.4",
+		"vue": "^3.5.0"
+	},
+	"packageManager": "pnpm@9.15.4",
+	"engines": {
+		"node": ">=22"
+	}
 }

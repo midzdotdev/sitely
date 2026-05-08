@@ -1,20 +1,26 @@
 {
-  "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
-  "organizeImports": { "enabled": true },
-  "linter": {
-    "enabled": true,
-    "rules": {
-      "recommended": true,
-      "complexity": { "noForEach": "off" },
-      "suspicious": { "noExplicitAny": "warn" },
-      "style": { "noNonNullAssertion": "off" }
-    }
-  },
-  "formatter": {
-    "indentStyle": "tab",
-    "lineWidth": 100
-  },
-  "files": {
-    "ignore": ["node_modules", "dist", ".turbo", "fixtures"]
-  }
+	"$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
+	"organizeImports": {
+		"enabled": true
+	},
+	"formatter": {
+		"indentStyle": "tab",
+		"lineWidth": 100
+	},
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"recommended": true,
+			"correctness": {
+				"noUnusedImports": "warn",
+				"noUnusedVariables": "warn"
+			},
+			"style": {
+				"noNonNullAssertion": "off"
+			}
+		}
+	},
+	"files": {
+		"ignore": ["node_modules", "dist", ".turbo", "*.html", "docs/api", "docs/.vitepress/cache", "docs/public/playground-data.json"]
+	}
 }

@@ -1,163 +1,289 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { Schema } from "@wapi/schemas";
+import type { Redis } from "ioredis";
+import type { Logger } from "pino";
 import { authMiddleware } from "./middleware/auth.js";
-import { createConsumer, getBalance } from "./services/auth-service.js";
-import {
-	extractFromUrl,
-	listSites,
-	findSite,
-} from "./services/extract-service.js";
+import * as authService from "./services/auth-service.js";
+import * as extractService from "./services/extract-service.js";
+import { checkApiKeyRateLimit } from "./services/rate-limiter.js";
+import type { AppEnv, Db } from "./types.js";
 
-type Variables = {
-	consumerId: string;
-	apiKeyId: string;
-};
+export function createApp(db: Db, redis: Redis, logger: Logger): Hono<AppEnv> {
+	const app = new Hono<AppEnv>();
 
-const app = new Hono<{ Variables: Variables }>();
+	// Global middleware
+	app.use("*", cors());
+	app.use("*", async (c, next) => {
+		c.set("db", db);
+		c.set("redis", redis);
+		c.set("logger", logger);
+		await next();
+	});
 
-// Global middleware
-app.use("*", cors());
+	// ─── Health check ────────────────────────────────────────────────────
+	app.get("/healthz", async (c) => {
+		try {
+			await redis.ping();
+			// Quick DB check via a simple query
+			return c.json({ status: "ok" });
+		} catch {
+			return c.json({ status: "unhealthy" }, 503);
+		}
+	});
 
-// ── Health ──────────────────────────────────────────────────────────
+	// ─── Auth routes (no auth required) ──────────────────────────────────
+	app.post("/v1/auth/signup", async (c) => {
+		const body = await c.req.json<{ email: string; name?: string }>().catch(() => null);
+		if (!body?.email) {
+			return c.json(
+				{ error: { code: "bad_request", message: "email is required", status: 400 } },
+				400,
+			);
+		}
 
-app.get("/health", (c) => c.json({ status: "ok" }));
+		try {
+			const result = await authService.signup(db, body.email, body.name);
+			return c.json(result, 201);
+		} catch (err) {
+			if (err instanceof Error && err.message.includes("unique")) {
+				return c.json(
+					{
+						error: {
+							code: "conflict",
+							message: "An account with this email already exists",
+							status: 409,
+						},
+					},
+					409,
+				);
+			}
+			throw err;
+		}
+	});
 
-// ── Auth ────────────────────────────────────────────────────────────
+	// ─── Protected routes ────────────────────────────────────────────────
+	const api = new Hono<AppEnv>();
 
-app.post("/v1/auth/signup", async (c) => {
-	const body = await c.req.json<{ email?: string; name?: string }>();
-	if (!body.email) {
-		return c.json({ error: "email is required" }, 400);
-	}
-	try {
-		const result = createConsumer(body.email, body.name);
-		return c.json(
-			{
-				consumerId: result.consumerId,
-				apiKey: result.apiKey,
-				apiKeyId: result.apiKeyId,
-				message: "Store your API key securely — it will not be shown again.",
-			},
-			201,
+	api.use("*", async (c, next) => {
+		c.set("db", db);
+		c.set("redis", redis);
+		c.set("logger", logger);
+		await next();
+	});
+	api.use("*", authMiddleware());
+
+	// Per-key rate limiting
+	api.use("*", async (c, next) => {
+		const apiKeyId = c.get("apiKeyId");
+		const { allowed, remaining, resetMs } = await checkApiKeyRateLimit(redis, apiKeyId);
+
+		c.header("X-RateLimit-Limit", "100");
+		c.header("X-RateLimit-Remaining", String(remaining));
+		c.header("X-RateLimit-Reset", String(Math.ceil(resetMs / 1000)));
+
+		if (!allowed) {
+			c.header("Retry-After", String(Math.ceil(resetMs / 1000)));
+			return c.json(
+				{
+					error: {
+						code: "rate_limited",
+						message: "Too many requests. Please retry after the Retry-After period.",
+						status: 429,
+					},
+				},
+				429,
+			);
+		}
+
+		await next();
+	});
+
+	// Auth management
+	api.post("/auth/keys", async (c) => {
+		const body = await c.req.json<{ label?: string }>().catch(() => ({}) as { label?: string });
+		const result = await authService.createApiKey(db, c.get("consumerId"), body.label);
+		return c.json(result, 201);
+	});
+
+	api.delete("/auth/keys/:id", async (c) => {
+		const keyId = c.req.param("id");
+		const revoked = await authService.revokeApiKey(db, c.get("consumerId"), keyId);
+		if (!revoked) {
+			return c.json(
+				{ error: { code: "not_found", message: "API key not found", status: 404 } },
+				404,
+			);
+		}
+		return c.json({ revoked: true });
+	});
+
+	api.get("/auth/balance", async (c) => {
+		const balance = await authService.getBalance(db, c.get("consumerId"));
+		return c.json({ tokenBalance: balance });
+	});
+
+	api.get("/auth/usage", async (c) => {
+		// TODO: query usage_logs with date filtering
+		return c.json({ usage: [] });
+	});
+
+	// ─── Extraction routes ───────────────────────────────────────────────
+	api.get("/extract", async (c) => {
+		const url = c.req.query("url");
+		if (!url) {
+			return c.json(
+				{ error: { code: "bad_request", message: "url query parameter is required", status: 400 } },
+				400,
+			);
+		}
+
+		try {
+			new URL(url);
+		} catch {
+			return c.json({ error: { code: "bad_request", message: "Invalid URL", status: 400 } }, 400);
+		}
+
+		const opts: extractService.ExtractOpts = {
+			fresh: c.req.query("fresh") === "true",
+			maxPages: c.req.query("maxPages") ? Number(c.req.query("maxPages")) : undefined,
+			cursor: c.req.query("cursor") ?? undefined,
+		};
+
+		const result = await extractService.extractFromUrl(
+			db,
+			redis,
+			url,
+			opts,
+			{ consumerId: c.get("consumerId"), apiKeyId: c.get("apiKeyId") },
+			logger,
 		);
-	} catch (err) {
+
+		const httpStatus =
+			result.status === "forbidden_by_robots"
+				? 403
+				: result.status === "rate_limited"
+					? 429
+					: result.status === "error" && !result.data
+						? 502
+						: 200;
+
+		return c.json(result, httpStatus);
+	});
+
+	// ─── Site discovery routes ───────────────────────────────────────────
+	api.get("/sites", (c) => {
+		return c.json({ sites: extractService.listSites() });
+	});
+
+	api.get("/sites/:domain", (c) => {
+		const domain = c.req.param("domain");
+		const sites = extractService.listSites();
+		const site = sites.find((s) => s.domain === domain);
+		if (!site) {
+			return c.json(
+				{ error: { code: "not_found", message: `No site definition for ${domain}`, status: 404 } },
+				404,
+			);
+		}
+		return c.json(site);
+	});
+
+	api.get("/sites/:domain/:resource", async (c) => {
+		const domain = c.req.param("domain");
+		const resource = c.req.param("resource");
+
+		// Collect all non-system query params as resource params
+		const params: Record<string, string> = {};
+		const reservedKeys = new Set(["fresh", "maxPages", "cursor"]);
+		for (const [key, value] of Object.entries(c.req.query())) {
+			if (!reservedKeys.has(key) && typeof value === "string") {
+				params[key] = value;
+			}
+		}
+
+		const opts: extractService.ExtractOpts = {
+			fresh: c.req.query("fresh") === "true",
+			maxPages: c.req.query("maxPages") ? Number(c.req.query("maxPages")) : undefined,
+			cursor: c.req.query("cursor") ?? undefined,
+		};
+
+		const result = await extractService.getResource(
+			db,
+			redis,
+			domain,
+			resource,
+			params,
+			opts,
+			{ consumerId: c.get("consumerId"), apiKeyId: c.get("apiKeyId") },
+			logger,
+		);
+
+		if (result.status === "error" && !result.data) {
+			return c.json(
+				{
+					error: {
+						code: "not_found",
+						message: `Resource "${resource}" not found on ${domain}`,
+						status: 404,
+					},
+				},
+				404,
+			);
+		}
+
+		return c.json(result);
+	});
+
+	// ─── Schema routes ───────────────────────────────────────────────────
+	api.get("/schemas", (c) => {
+		return c.json({ schemas: extractService.listSchemas() });
+	});
+
+	api.get("/schemas/:type/sites", (c) => {
+		const schemaType = c.req.param("type");
+		const sites = extractService.findSitesForSchema(schemaType);
+		return c.json({ schemaType, sites });
+	});
+
+	// ─── Admin routes ────────────────────────────────────────────────────
+	api.post("/admin/grant-tokens", async (c) => {
+		const adminSecret = c.req.header("X-Admin-Secret");
+		if (adminSecret !== process.env.ADMIN_SECRET) {
+			return c.json(
+				{ error: { code: "forbidden", message: "Invalid admin secret", status: 403 } },
+				403,
+			);
+		}
+
+		const body = await c.req.json<{ consumerId: string; amount: number }>().catch(() => null);
+		if (!body?.consumerId || !body?.amount) {
+			return c.json(
+				{
+					error: {
+						code: "bad_request",
+						message: "consumerId and amount are required",
+						status: 400,
+					},
+				},
+				400,
+			);
+		}
+
+		const newBalance = await authService.grantTokens(db, body.consumerId, body.amount);
+		return c.json({ consumerId: body.consumerId, newBalance });
+	});
+
+	// Mount protected routes under /v1
+	app.route("/v1", api);
+
+	// Global error handler
+	app.onError((err, c) => {
+		logger.error({ err, path: c.req.path }, "Unhandled error");
 		return c.json(
-			{ error: err instanceof Error ? err.message : "Failed to create account" },
+			{ error: { code: "internal_error", message: "Internal server error", status: 500 } },
 			500,
 		);
-	}
-});
-
-app.get("/v1/auth/balance", authMiddleware, (c) => {
-	const consumerId = c.get("consumerId");
-	const balance = getBalance(consumerId);
-	return c.json({ tokenBalance: balance });
-});
-
-// ── Discovery (free, no auth required) ──────────────────────────────
-
-app.get("/v1/sites", (c) => {
-	const sites = listSites().map((s) => ({
-		name: s.name,
-		domain: s.domain,
-		resources: Object.entries(s.resources).map(([name, r]) => ({
-			name,
-			schema: r.schema,
-			params: r.params,
-			ttl: r.ttl,
-		})),
-	}));
-	return c.json({ sites });
-});
-
-app.get("/v1/sites/:domain", (c) => {
-	const domain = c.req.param("domain");
-	const site = findSite(domain);
-	if (!site) {
-		return c.json({ error: `No site definition for ${domain}` }, 404);
-	}
-	return c.json({
-		name: site.name,
-		domain: site.domain,
-		aliases: site.aliases,
-		resources: Object.entries(site.resources).map(([name, r]) => ({
-			name,
-			schema: r.schema,
-			params: r.params,
-			ttl: r.ttl,
-		})),
-		pages: Object.entries(site.pages).map(([pattern, p]) => ({
-			pattern,
-			provides: p.provides,
-			examples: p.examples,
-			hasPagination: !!p.paginate,
-		})),
 	});
-});
 
-app.get("/v1/schemas", (c) => {
-	const schemas = Object.entries(Schema).map(([name, type]) => ({ name, type }));
-	return c.json({ schemas });
-});
-
-app.get("/v1/schemas/:type/sites", (c) => {
-	const schemaType = c.req.param("type");
-	const matchingSites = listSites()
-		.filter((s) =>
-			Object.values(s.resources).some((r) => r.schema === schemaType),
-		)
-		.map((s) => ({ name: s.name, domain: s.domain }));
-	return c.json({ schemaType, sites: matchingSites });
-});
-
-// ── Extract (requires auth) ─────────────────────────────────────────
-
-app.get("/v1/extract", authMiddleware, async (c) => {
-	const url = c.req.query("url");
-	if (!url) {
-		return c.json({ error: "url query parameter is required" }, 400);
-	}
-
-	const consumerId = c.get("consumerId");
-	const result = await extractFromUrl(url, consumerId);
-	const statusCode = result.status === "error" ? 500 : result.status === "blocked" ? 503 : 200;
-	return c.json(result, statusCode);
-});
-
-// ── Resource Access ─────────────────────────────────────────────────
-
-app.get("/v1/sites/:domain/:resource", authMiddleware, async (c) => {
-	const domain = c.req.param("domain");
-	const resourceName = c.req.param("resource");
-	const site = findSite(domain);
-
-	if (!site) {
-		return c.json({ error: `No site definition for ${domain}` }, 404);
-	}
-
-	const resource = site.resources[resourceName];
-	if (!resource) {
-		return c.json({ error: `No resource "${resourceName}" on ${domain}` }, 404);
-	}
-
-	// Build params from query string
-	const params: Record<string, string> = {};
-	for (const [key, def] of Object.entries(resource.params)) {
-		const value = c.req.query(key);
-		if (def.required && !value) {
-			return c.json({ error: `Missing required parameter: ${key}` }, 400);
-		}
-		if (value) params[key] = value;
-	}
-
-	// Resolve URL
-	const path = resource.resolve(params);
-	const fullUrl = `https://${site.domain}${path}`;
-	const consumerId = c.get("consumerId");
-	const result = await extractFromUrl(fullUrl, consumerId);
-	const statusCode = result.status === "error" ? 500 : result.status === "blocked" ? 503 : 200;
-	return c.json(result, statusCode);
-});
-
-export { app };
+	return app;
+}

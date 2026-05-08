@@ -1,16 +1,18 @@
-import { defineSite, Schema } from "@wapi/framework";
+import { Schema, defineSite } from "@wapi/framework";
 
 export default defineSite({
 	name: "Hacker News",
 	domain: "news.ycombinator.com",
 
-	normalizeUrl: (url) => {
+	normalizeUrl: (url: string) => {
 		const u = new URL(url);
+		// Keep only meaningful query params
 		const id = u.searchParams.get("id");
 		const p = u.searchParams.get("p");
 		u.search = "";
 		if (id) u.searchParams.set("id", id);
 		if (p) u.searchParams.set("p", p);
+		u.hash = "";
 		return u.toString();
 	},
 
@@ -23,9 +25,13 @@ export default defineSite({
 		story: {
 			schema: Schema.Article,
 			params: {
-				id: { type: "string", required: true, description: "HN story ID" },
+				id: {
+					type: "string" as const,
+					required: true,
+					description: "HN story ID",
+				},
 			},
-			resolve: ({ id }) => `/item?id=${id}`,
+			resolve: (params: Record<string, string>) => `/item?id=${params.id}`,
 			ttl: "1h",
 		},
 		frontPage: {
@@ -39,7 +45,7 @@ export default defineSite({
 	pages: {
 		"/news": {
 			provides: ["frontPage"],
-			examples: ["https://news.ycombinator.com/news"],
+			examples: ["https://news.ycombinator.com/news", "https://news.ycombinator.com/news?p=2"],
 
 			validate: (ctx) => {
 				return ctx.$(".itemlist")?.exists() === true && ctx.status === 200;
@@ -47,19 +53,33 @@ export default defineSite({
 
 			paginate: {
 				next: (ctx) => {
-					const more = ctx.$("a.morelink")?.attr("href");
-					return more ? `https://news.ycombinator.com/${more}` : null;
+					const href = ctx.$("a.morelink")?.attr("href");
+					if (!href) return null;
+					try {
+						return new URL(href, ctx.url).toString();
+					} catch {
+						return null;
+					}
 				},
 			},
 
-			extract: async (ctx) => ({
-				frontPage: ctx.$$(".athing").map((el) => ({
-					id: el.attr("id"),
-					title: el.$(".titleline > a")?.text() ?? "",
-					url: el.$(".titleline > a")?.attr("href") ?? "",
-					score: Number.parseInt(el.next()?.$(".score")?.text() ?? "0", 10),
-				})),
-			}),
+			extract: async (ctx) => {
+				const items = ctx.$$(".athing");
+				const stories = items.map((el) => {
+					const titleLink = el.$(".titleline > a");
+					const subtextRow = el.next();
+					return {
+						id: el.attr("id"),
+						title: titleLink?.text() ?? "",
+						url: titleLink?.attr("href") ?? "",
+						score: Number.parseInt(subtextRow?.$(".score")?.text()?.replace(/\D/g, "") ?? "0", 10),
+						author: subtextRow?.$(".hnuser")?.text() ?? "",
+						commentCount: parseCommentCount(subtextRow?.$$("a")?.pop()?.text() ?? ""),
+					};
+				});
+
+				return { frontPage: stories };
+			},
 		},
 
 		"/item": {
@@ -70,20 +90,26 @@ export default defineSite({
 				return ctx.$(".fatitem")?.exists() === true && ctx.status === 200;
 			},
 
-			extract: async (ctx) => ({
-				story: {
-					id: ctx.params["id"],
-					title: ctx.$(".titleline > a")?.text() ?? "",
-					url: ctx.$(".titleline > a")?.attr("href") ?? "",
-					author: ctx.$(".hnuser")?.text() ?? "",
-					score: Number.parseInt(ctx.$(".score")?.text() ?? "0", 10),
-					comments: ctx.$$(".comtr").map((el) => ({
-						id: el.attr("id"),
-						author: el.$(".hnuser")?.text() ?? "",
-						text: el.$(".commtext")?.text() ?? "",
-					})),
-				},
-			}),
+			extract: async (ctx) => {
+				const titleLink = ctx.$(".titleline > a");
+				const comments = ctx.$$(".comtr").map((el) => ({
+					id: el.attr("id"),
+					author: el.$(".hnuser")?.text() ?? "",
+					text: el.$(".commtext")?.text() ?? "",
+				}));
+
+				return {
+					story: {
+						id: ctx.params.id,
+						title: titleLink?.text() ?? "",
+						url: titleLink?.attr("href") ?? "",
+						author: ctx.$(".hnuser")?.text() ?? "",
+						score: Number.parseInt(ctx.$(".score")?.text()?.replace(/\D/g, "") ?? "0", 10),
+						comments,
+						commentCount: comments.length,
+					},
+				};
+			},
 		},
 	},
 
@@ -93,3 +119,9 @@ export default defineSite({
 		maxDepth: 1,
 	},
 });
+
+function parseCommentCount(text: string): number {
+	if (!text || text.includes("discuss")) return 0;
+	const match = text.match(/(\d+)\s*comment/);
+	return match ? Number.parseInt(match[1], 10) : 0;
+}
