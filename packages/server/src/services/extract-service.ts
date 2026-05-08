@@ -2,12 +2,14 @@ import {
 	type PageDef,
 	type SiteDefinition,
 	createExtractContext,
+	getAllHostnames,
 	matchPagePattern,
 } from "@sitely/framework";
 import { CheerioDriver } from "@sitely/page";
 import type { Redis } from "ioredis";
 import type { Logger } from "pino";
 import { fetchPage } from "../http-client.js";
+import { siteDomain, siteName } from "../site-accessors.js";
 import { getAllSites, getSite } from "../site-loader.js";
 import type { Db } from "../types.js";
 import { calculateActualCost, estimateCost, logUsage } from "./billing-service.js";
@@ -133,7 +135,7 @@ export async function getResource(
 	}
 
 	const path = resource.resolve(params);
-	const url = `https://${site.domain}${path}`;
+	const url = `https://${siteDomain(site)}${path}`;
 	return extractWithSiteDefinition(db, redis, site, url, opts, auth, logger);
 }
 
@@ -146,8 +148,8 @@ export function listSites(): Array<{
 	resources: Array<{ name: string; schema: string; params: Record<string, unknown> }>;
 }> {
 	return getAllSites().map((site) => ({
-		domain: site.domain,
-		name: site.name,
+		domain: siteDomain(site),
+		name: siteName(site),
 		resources: Object.entries(site.resources).map(([name, r]) => ({
 			name,
 			schema: r.schema,
@@ -164,8 +166,8 @@ export function listSchemas(): Array<{ name: string; sites: string[] }> {
 	for (const site of getAllSites()) {
 		for (const resource of Object.values(site.resources)) {
 			const sites = schemaMap.get(resource.schema) ?? [];
-			if (!sites.includes(site.domain)) {
-				sites.push(site.domain);
+			if (!sites.includes(siteDomain(site))) {
+				sites.push(siteDomain(site));
 			}
 			schemaMap.set(resource.schema, sites);
 		}
@@ -183,7 +185,7 @@ export function findSitesForSchema(
 	for (const site of getAllSites()) {
 		for (const [name, resource] of Object.entries(site.resources)) {
 			if (resource.schema === schemaType) {
-				results.push({ domain: site.domain, name: site.name, resource: name });
+				results.push({ domain: siteDomain(site), name: siteName(site), resource: name });
 			}
 		}
 	}
@@ -207,14 +209,14 @@ async function extractWithSiteDefinition(
 	// Match page pattern
 	const match = matchPagePattern(site, normalizedUrl);
 	if (!match) {
-		logger.warn({ url, domain: site.domain }, "URL doesn't match any page pattern");
+		logger.warn({ url, domain: siteDomain(site) }, "URL doesn't match any page pattern");
 		return extractFallback(db, redis, url, opts, auth, logger);
 	}
 
 	const page = site.pages[match.pageKey];
 	const resourceName = page.provides[0] ?? "unknown";
 	const resource = site.resources[resourceName];
-	const ttlSeconds = resource ? parseTtl(resource.ttl) : 3600;
+	const ttlSeconds = resource ? parseTtl(resource.ttl.default) : 3600;
 
 	// Check cache (unless fresh=true)
 	if (!opts.fresh) {
@@ -224,7 +226,7 @@ async function extractWithSiteDefinition(
 			await logUsage(db, {
 				...auth,
 				operation: "cached_read",
-				siteDomain: site.domain,
+				siteDomain: siteDomain(site),
 				resourceType: resourceName,
 				tokensEstimated: cost,
 				tokensActual: cost,
@@ -235,7 +237,7 @@ async function extractWithSiteDefinition(
 			return {
 				status: cached.extractionStatus as ExtractionStatus,
 				data: cached.data,
-				site: { domain: site.domain, name: site.name },
+				site: { domain: siteDomain(site), name: siteName(site) },
 				definitionType: "site",
 				cached: true,
 				cost: { tokensEstimated: cost, tokensActual: cost },
@@ -296,7 +298,7 @@ async function executeExtraction(
 		return {
 			status: "forbidden_by_robots",
 			data: null,
-			site: { domain: site.domain, name: site.name },
+			site: { domain: siteDomain(site), name: siteName(site) },
 			definitionType: "site",
 			cached: false,
 			cost: { tokensEstimated: 0, tokensActual: 0 },
@@ -305,7 +307,7 @@ async function executeExtraction(
 
 	// Per-site rate limiting
 	const acquired = await rateLimiter.acquire(
-		site.domain,
+		siteDomain(site),
 		site.rateLimit.maxConcurrent,
 		site.rateLimit.requestsPerSecond,
 	);
@@ -317,7 +319,7 @@ async function executeExtraction(
 			return {
 				status: "success",
 				data: { ...stale.data, _stale: true },
-				site: { domain: site.domain, name: site.name },
+				site: { domain: siteDomain(site), name: siteName(site) },
 				definitionType: "site",
 				cached: true,
 				cost: { tokensEstimated: estimated, tokensActual: 1 },
@@ -327,7 +329,7 @@ async function executeExtraction(
 		return {
 			status: "rate_limited",
 			data: null,
-			site: { domain: site.domain, name: site.name },
+			site: { domain: siteDomain(site), name: siteName(site) },
 			definitionType: "site",
 			cached: false,
 			cost: { tokensEstimated: estimated, tokensActual: estimated },
@@ -368,7 +370,7 @@ async function executeExtraction(
 			await logUsage(db, {
 				...auth,
 				operation: "live_scrape",
-				siteDomain: site.domain,
+				siteDomain: siteDomain(site),
 				resourceType: resourceName,
 				tokensEstimated: estimated,
 				tokensActual: cost,
@@ -382,7 +384,7 @@ async function executeExtraction(
 				return {
 					status: "blocked",
 					data: { ...stale.data, _stale: true },
-					site: { domain: site.domain, name: site.name },
+					site: { domain: siteDomain(site), name: siteName(site) },
 					definitionType: "site",
 					cached: true,
 					cost: { tokensEstimated: estimated, tokensActual: cost },
@@ -392,7 +394,7 @@ async function executeExtraction(
 			return {
 				status: "blocked",
 				data: null,
-				site: { domain: site.domain, name: site.name },
+				site: { domain: siteDomain(site), name: siteName(site) },
 				definitionType: "site",
 				cached: false,
 				cost: { tokensEstimated: estimated, tokensActual: cost },
@@ -412,7 +414,7 @@ async function executeExtraction(
 			await logUsage(db, {
 				...auth,
 				operation: "live_scrape",
-				siteDomain: site.domain,
+				siteDomain: siteDomain(site),
 				resourceType: resourceName,
 				tokensEstimated: estimated,
 				tokensActual: cost,
@@ -425,7 +427,7 @@ async function executeExtraction(
 				return {
 					status: "stale",
 					data: { ...stale.data, _stale: true },
-					site: { domain: site.domain, name: site.name },
+					site: { domain: siteDomain(site), name: siteName(site) },
 					definitionType: "site",
 					cached: true,
 					cost: { tokensEstimated: estimated, tokensActual: cost },
@@ -435,7 +437,7 @@ async function executeExtraction(
 			return {
 				status: "stale",
 				data: null,
-				site: { domain: site.domain, name: site.name },
+				site: { domain: siteDomain(site), name: siteName(site) },
 				definitionType: "site",
 				cached: false,
 				cost: { tokensEstimated: estimated, tokensActual: cost },
@@ -474,7 +476,7 @@ async function executeExtraction(
 		// Cache the result
 		const dataSizeBytes = Buffer.byteLength(JSON.stringify(data));
 		await cacheSet(db, redis, {
-			siteDomain: site.domain,
+			siteDomain: siteDomain(site),
 			resourceType: resourceName,
 			params: match.params,
 			normalizedUrl,
@@ -487,7 +489,7 @@ async function executeExtraction(
 		await logUsage(db, {
 			...auth,
 			operation: "live_scrape",
-			siteDomain: site.domain,
+			siteDomain: siteDomain(site),
 			resourceType: resourceName,
 			tokensEstimated: estimated,
 			tokensActual: actualCost,
@@ -498,7 +500,7 @@ async function executeExtraction(
 		return {
 			status: "success",
 			data,
-			site: { domain: site.domain, name: site.name },
+			site: { domain: siteDomain(site), name: siteName(site) },
 			definitionType: "site",
 			cached: false,
 			cost: { tokensEstimated: estimated, tokensActual: actualCost },
@@ -511,7 +513,7 @@ async function executeExtraction(
 			return {
 				status: "error",
 				data: { ...stale.data, _stale: true },
-				site: { domain: site.domain, name: site.name },
+				site: { domain: siteDomain(site), name: siteName(site) },
 				definitionType: "site",
 				cached: true,
 				cost: { tokensEstimated: estimated, tokensActual: estimated },
@@ -521,13 +523,13 @@ async function executeExtraction(
 		return {
 			status: "error",
 			data: null,
-			site: { domain: site.domain, name: site.name },
+			site: { domain: siteDomain(site), name: siteName(site) },
 			definitionType: "site",
 			cached: false,
 			cost: { tokensEstimated: estimated, tokensActual: estimated },
 		};
 	} finally {
-		await rateLimiter.release(site.domain);
+		await rateLimiter.release(siteDomain(site));
 	}
 }
 
@@ -565,7 +567,7 @@ async function handlePagination(
 		if (!robotsAllowed) break;
 
 		const acquired = await rateLimiter.acquire(
-			site.domain,
+			siteDomain(site),
 			site.rateLimit.maxConcurrent,
 			site.rateLimit.requestsPerSecond,
 		);
@@ -601,7 +603,7 @@ async function handlePagination(
 			pagesReturned++;
 			nextUrl = paginate.next(currentCtx);
 		} finally {
-			await rateLimiter.release(site.domain);
+			await rateLimiter.release(siteDomain(site));
 		}
 	}
 
@@ -777,24 +779,24 @@ function createSandboxedFetch(
 	redis: Redis,
 	_logger: Logger,
 ): (url: string, opts?: RequestInit) => Promise<Response> {
-	const allowedDomains = new Set([site.domain, ...(site.aliases ?? [])]);
+	const allowedDomains = new Set(getAllHostnames(site));
 	const rateLimiter = new SiteRateLimiter(redis);
 
 	return async (url: string, opts?: RequestInit): Promise<Response> => {
-		const parsed = new URL(url, `https://${site.domain}`);
+		const parsed = new URL(url, `https://${siteDomain(site)}`);
 		if (!allowedDomains.has(parsed.hostname)) {
 			throw new Error(
-				`ctx.fetch() domain "${parsed.hostname}" not allowed for site ${site.domain}`,
+				`ctx.fetch() domain "${parsed.hostname}" not allowed for site ${siteDomain(site)}`,
 			);
 		}
 
 		const acquired = await rateLimiter.acquire(
-			site.domain,
+			siteDomain(site),
 			site.rateLimit.maxConcurrent,
 			site.rateLimit.requestsPerSecond,
 		);
 		if (!acquired) {
-			throw new Error(`Rate limited for ${site.domain}`);
+			throw new Error(`Rate limited for ${siteDomain(site)}`);
 		}
 
 		try {
@@ -803,7 +805,7 @@ function createSandboxedFetch(
 				signal: opts?.signal ?? AbortSignal.timeout(15_000),
 			});
 		} finally {
-			await rateLimiter.release(site.domain);
+			await rateLimiter.release(siteDomain(site));
 		}
 	};
 }

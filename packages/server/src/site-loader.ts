@@ -1,42 +1,50 @@
-import type { SiteDefinition } from "@sitely/framework";
+import { getAllHostnames, type SiteDefinition } from "@sitely/framework";
 import type { Logger } from "pino";
 
 /**
- * Registry of loaded site definitions, keyed by domain.
+ * Registry of loaded site definitions, keyed by hostname.
+ *
+ * A site can be reachable at multiple hostnames (one per locale when
+ * `locales.source === "host"`); each hostname maps back to the same site.
  */
 const siteRegistry = new Map<string, SiteDefinition>();
+const sitesById = new Map<string, SiteDefinition>();
 
 /**
  * Register a site definition. Called at startup.
+ *
+ * Adds an entry per active hostname (locale-expanded if applicable) so the
+ * server can route by `Host:` header or path-prefix lookup.
  */
 export function registerSite(site: SiteDefinition, logger?: Logger): void {
-	siteRegistry.set(site.domain, site);
-	if (site.aliases) {
-		for (const alias of site.aliases) {
-			siteRegistry.set(alias, site);
-		}
+	const hostnames = getAllHostnames(site);
+	for (const hostname of hostnames) {
+		siteRegistry.set(hostname, site);
 	}
-	logger?.info({ domain: site.domain, aliases: site.aliases }, "Registered site definition");
+	sitesById.set(site.site.id, site);
+	logger?.info(
+		{ siteId: site.site.id, hostnames },
+		"Registered site definition",
+	);
 }
 
 /**
- * Get a site definition by domain.
+ * Get a site definition by hostname (locale-expanded).
  */
-export function getSite(domain: string): SiteDefinition | undefined {
-	return siteRegistry.get(domain);
+export function getSite(hostname: string): SiteDefinition | undefined {
+	return siteRegistry.get(hostname);
 }
 
 /**
- * Get all registered site definitions (unique by domain, excluding aliases).
+ * Get a site definition by canonical id.
+ */
+export function getSiteById(id: string): SiteDefinition | undefined {
+	return sitesById.get(id);
+}
+
+/**
+ * Get all registered site definitions (unique by site.id).
  */
 export function getAllSites(): SiteDefinition[] {
-	const seen = new Set<string>();
-	const sites: SiteDefinition[] = [];
-	for (const site of siteRegistry.values()) {
-		if (!seen.has(site.domain)) {
-			seen.add(site.domain);
-			sites.push(site);
-		}
-	}
-	return sites;
+	return [...sitesById.values()];
 }

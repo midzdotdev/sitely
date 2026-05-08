@@ -7,14 +7,16 @@ import { matchPagePattern, matchPattern } from "./test-harness.js";
 describe("defineSite", () => {
 	it("passes through the definition object", () => {
 		const site = defineSite({
-			name: "Test",
-			domain: "test.com",
+			site: { id: "test", displayName: "Test" },
+			origins: [{ hostname: "test.com" }],
 			rateLimit: { maxConcurrent: 1, requestsPerSecond: 1 },
+			schemas: {},
 			resources: {},
 			pages: {},
 		});
-		expect(site.name).toBe("Test");
-		expect(site.domain).toBe("test.com");
+		expect(site.site.id).toBe("test");
+		expect(site.site.displayName).toBe("Test");
+		expect(site.origins[0].hostname).toBe("test.com");
 	});
 });
 
@@ -50,9 +52,10 @@ describe("matchPattern", () => {
 
 describe("matchPagePattern", () => {
 	const site = defineSite({
-		name: "Test",
-		domain: "test.com",
+		site: { id: "test", displayName: "Test" },
+		origins: [{ hostname: "test.com" }],
 		rateLimit: { maxConcurrent: 1, requestsPerSecond: 1 },
+		schemas: {},
 		resources: {},
 		pages: {
 			"/wiki/:title": {

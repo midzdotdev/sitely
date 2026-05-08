@@ -1,8 +1,16 @@
-import { Schema, defineSite } from "@sitely/framework";
+import { defineSite } from "@sitely/framework";
+import { Article } from "@sitely/schemas";
 
 export default defineSite({
-	name: "Wikipedia (English)",
-	domain: "en.wikipedia.org",
+	site: { id: "wikipedia", displayName: "Wikipedia (English)" },
+
+	origins: [{ hostname: "{locale}.wikipedia.org", templated: true }],
+
+	locales: {
+		source: "host",
+		values: ["en", "de", "fr"],
+		default: "en",
+	},
 
 	normalizeUrl: (url: string) => {
 		const u = new URL(url);
@@ -18,9 +26,11 @@ export default defineSite({
 		requestsPerSecond: 1,
 	},
 
+	schemas: { Article },
+
 	resources: {
 		article: {
-			schema: Schema.Article,
+			schema: "Article",
 			params: {
 				title: {
 					type: "string" as const,
@@ -29,7 +39,7 @@ export default defineSite({
 				},
 			},
 			resolve: (params: Record<string, string>) => `/wiki/${encodeURIComponent(params.title)}`,
-			ttl: "24h",
+			ttl: { default: "24h", min: "1m", max: "30d" },
 		},
 	},
 

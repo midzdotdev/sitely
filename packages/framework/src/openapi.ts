@@ -1,3 +1,4 @@
+import { getPrimaryHostname } from "./origins.js";
 import type { SiteDefinition } from "./types.js";
 
 // ── JSON Schema Mappings ──────────────────────────────────────────
@@ -331,12 +332,13 @@ function buildResourcePath(site: SiteDefinition, resourceName: string): JsonSche
 		? `#/components/schemas/${resource.schema}`
 		: "#/components/schemas/Thing";
 
+	const primaryHost = getPrimaryHostname(site);
 	return {
 		get: {
-			operationId: `get_${site.domain.replace(/\./g, "_")}_${resourceName}`,
-			summary: `Extract ${resourceName} from ${site.name}`,
-			description: `Extracts structured ${resource.schema} data for the "${resourceName}" resource from ${site.domain}. TTL: ${resource.ttl}.`,
-			tags: [site.domain],
+			operationId: `get_${primaryHost.replace(/\./g, "_")}_${resourceName}`,
+			summary: `Extract ${resourceName} from ${site.site.displayName}`,
+			description: `Extracts structured ${resource.schema} data for the "${resourceName}" resource from ${primaryHost}. TTL: ${resource.ttl.default} (clamped to [${resource.ttl.min}, ${resource.ttl.max}]).`,
+			tags: [primaryHost],
 			security: [{ apiKey: [] }],
 			parameters,
 			responses: {
@@ -379,8 +381,9 @@ export function generateOpenApiSpec(sites: SiteDefinition[]): Record<string, unk
 	const paths: Record<string, JsonSchema> = {};
 
 	for (const site of sites) {
+		const host = getPrimaryHostname(site);
 		for (const resourceName of Object.keys(site.resources)) {
-			const pathKey = `/v1/sites/${site.domain}/${resourceName}`;
+			const pathKey = `/v1/sites/${host}/${resourceName}`;
 			paths[pathKey] = buildResourcePath(site, resourceName);
 		}
 	}
@@ -615,8 +618,8 @@ export function generateOpenApiSpec(sites: SiteDefinition[]): Record<string, unk
 
 	for (const site of sites) {
 		tags.push({
-			name: site.domain,
-			description: `${site.name} — resources: ${Object.keys(site.resources).join(", ")}`,
+			name: getPrimaryHostname(site),
+			description: `${site.site.displayName} — resources: ${Object.keys(site.resources).join(", ")}`,
 		});
 	}
 

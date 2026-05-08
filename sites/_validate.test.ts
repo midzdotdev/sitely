@@ -34,18 +34,32 @@ for (const { name, path } of siteDirs) {
 		describe("site definition", () => {
 			it("exports a valid default", () => {
 				expect(site).toBeDefined();
-				expect(typeof site.name).toBe("string");
-				expect(site.name.length).toBeGreaterThan(0);
+				expect(typeof site.site?.id).toBe("string");
+				expect(site.site.id.length).toBeGreaterThan(0);
+				expect(typeof site.site.displayName).toBe("string");
+				expect(site.site.displayName.length).toBeGreaterThan(0);
 			});
 
-			it("has a valid domain", () => {
-				expect(site.domain).toBeTruthy();
-				expect(site.domain).not.toContain("://");
+			it("has at least one origin with a valid hostname", () => {
+				expect(site.origins.length).toBeGreaterThan(0);
+				for (const origin of site.origins) {
+					expect(origin.hostname).toBeTruthy();
+					expect(origin.hostname).not.toContain("://");
+				}
 			});
 
 			it("has valid rate limit config", () => {
 				expect(site.rateLimit.maxConcurrent).toBeGreaterThan(0);
 				expect(site.rateLimit.requestsPerSecond).toBeGreaterThan(0);
+			});
+
+			it("declares schemas referenced by resources", () => {
+				for (const [rName, resource] of Object.entries(site.resources)) {
+					expect(
+						site.schemas[resource.schema],
+						`resource "${rName}" references schema "${resource.schema}" which is not in site.schemas`,
+					).toBeDefined();
+				}
 			});
 		});
 
@@ -68,8 +82,11 @@ for (const { name, path } of siteDirs) {
 						expect(resolved.startsWith("/") || resolved.startsWith("?")).toBe(true);
 					});
 
-					it("has a valid ttl", () => {
-						expect(resource.ttl).toMatch(/^\d+[smhd]$/);
+					it("has a valid ttl shape", () => {
+						expect(resource.ttl).toBeDefined();
+						expect(resource.ttl.default).toMatch(/^\d+[smhd]$/);
+						expect(resource.ttl.min).toMatch(/^\d+[smhd]$/);
+						expect(resource.ttl.max).toMatch(/^\d+[smhd]$/);
 					});
 				});
 			}

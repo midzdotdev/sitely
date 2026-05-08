@@ -1,8 +1,11 @@
-import { Schema, defineSite } from "@sitely/framework";
+import { defineSite } from "@sitely/framework";
+import { Article, ItemList } from "@sitely/schemas";
 
 export default defineSite({
-	name: "Hacker News",
-	domain: "news.ycombinator.com",
+	site: { id: "hackernews", displayName: "Hacker News" },
+	origins: [{ hostname: "news.ycombinator.com" }],
+
+	schemas: { Article, ItemList },
 
 	normalizeUrl: (url: string) => {
 		const u = new URL(url);
@@ -23,7 +26,7 @@ export default defineSite({
 
 	resources: {
 		story: {
-			schema: Schema.Article,
+			schema: "Article",
 			params: {
 				id: {
 					type: "string" as const,
@@ -32,13 +35,13 @@ export default defineSite({
 				},
 			},
 			resolve: (params: Record<string, string>) => `/item?id=${params.id}`,
-			ttl: "1h",
+			ttl: { default: "1h", min: "1m", max: "24h" },
 		},
 		frontPage: {
-			schema: Schema.ItemList,
+			schema: "ItemList",
 			params: {},
 			resolve: () => "/news",
-			ttl: "5m",
+			ttl: { default: "5m", min: "30s", max: "1h" },
 		},
 	},
 

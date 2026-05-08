@@ -62,10 +62,16 @@ async function checkSite(sitePath: string): Promise<{ name: string; results: Che
 		return { name: siteName, results };
 	}
 
-	// Name and domain
-	const nameOk = typeof site.name === "string" && site.name.length > 0;
-	const domainOk = typeof site.domain === "string" && !site.domain.includes("://");
-	results.push({ label: "name and domain", ok: nameOk && domainOk });
+	// Site identity + origins
+	const idOk = typeof site.site?.id === "string" && site.site.id.length > 0;
+	const displayOk = typeof site.site?.displayName === "string" && site.site.displayName.length > 0;
+	const originsOk =
+		Array.isArray(site.origins) &&
+		site.origins.length > 0 &&
+		site.origins.every(
+			(o) => typeof o.hostname === "string" && o.hostname.length > 0 && !o.hostname.includes("://"),
+		);
+	results.push({ label: "site identity + origins", ok: idOk && displayOk && originsOk });
 
 	// Rate limit
 	const rlOk = site.rateLimit.maxConcurrent > 0 && site.rateLimit.requestsPerSecond > 0;
@@ -79,12 +85,26 @@ async function checkSite(sitePath: string): Promise<{ name: string; results: Che
 	});
 
 	for (const [rName, resource] of Object.entries(site.resources)) {
-		const ttlOk = /^\d+[smhd]$/.test(resource.ttl);
-		if (!ttlOk) {
+		const ttl = resource.ttl;
+		const ttlShape =
+			typeof ttl === "object" &&
+			typeof ttl.default === "string" &&
+			typeof ttl.min === "string" &&
+			typeof ttl.max === "string";
+		if (!ttlShape) {
 			results.push({
-				label: `resource "${rName}" ttl`,
+				label: `resource "${rName}" ttl shape`,
 				ok: false,
-				detail: `invalid: "${resource.ttl}"`,
+				detail: "expected { default, min, max } strings",
+			});
+			continue;
+		}
+		const re = /^\d+[smhd]$/;
+		if (!(re.test(ttl.default) && re.test(ttl.min) && re.test(ttl.max))) {
+			results.push({
+				label: `resource "${rName}" ttl format`,
+				ok: false,
+				detail: `each TTL must match /^\\d+[smhd]$/ (got default="${ttl.default}", min="${ttl.min}", max="${ttl.max}")`,
 			});
 		}
 	}
@@ -364,6 +384,7 @@ function runInit(domain: string): void {
 	mkdirSync(join(rootDir, "fixtures"), { recursive: true });
 
 	const slug = slugify(domain);
+	const idGuess = slug.replace(/\..*/, "").replace(/-/g, "");
 	const pkg = {
 		name: `@sitely/site-${slug}`,
 		private: true,
@@ -376,6 +397,7 @@ function runInit(domain: string): void {
 		},
 		dependencies: {
 			"@sitely/framework": "workspace:*",
+			"@sitely/schemas": "workspace:*",
 		},
 		devDependencies: {
 			typescript: "^5.7.3",
@@ -394,11 +416,16 @@ function runInit(domain: string): void {
 
 	writeFileSync(
 		join(rootDir, "index.ts"),
-		`import { Schema, defineSite } from "@sitely/framework";
+		`import { defineSite } from "@sitely/framework";
+import { WebPage } from "@sitely/schemas";
 
 export default defineSite({
-	name: "${domain}", // TODO: Give your site a friendly name
-	domain: "${domain}",
+	site: {
+		id: "${idGuess}", // TODO: pick a stable, scoped id (lowercase, no dots)
+		displayName: "${domain}", // TODO: human-readable name
+	},
+
+	origins: [{ hostname: "${domain}" }],
 
 	normalizeUrl: (url) => {
 		const u = new URL(url);
@@ -411,13 +438,15 @@ export default defineSite({
 		requestsPerSecond: 1,
 	},
 
+	schemas: { WebPage },
+
 	resources: {
 		// TODO: Define your resources
 		page: {
-			schema: Schema.Thing,
+			schema: "WebPage",
 			params: {},
 			resolve: () => "/",
-			ttl: "1h",
+			ttl: { default: "1h", min: "1m", max: "24h" },
 		},
 	},
 
@@ -435,7 +464,7 @@ export default defineSite({
 
 			extract: async (ctx) => ({
 				page: {
-					title: ctx.$("title")?.text()?.trim() ?? "",
+					name: ctx.$("title")?.text()?.trim() ?? "",
 				},
 			}),
 		},

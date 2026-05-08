@@ -1,4 +1,5 @@
-import { Schema, defineSite } from "@sitely/framework";
+import { defineSite } from "@sitely/framework";
+import { Article } from "@sitely/schemas";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { MockDbData } from "./helpers.js";
 import { WIKIPEDIA_FIXTURE_HTML, createTestApiKey, createTestApp } from "./helpers.js";
@@ -21,8 +22,8 @@ import { isAllowedByRobots } from "../services/robots-service.js";
 // ─── Test site definition ────────────────────────────────────────────────────
 
 const wikipediaSite = defineSite({
-	name: "Wikipedia (English)",
-	domain: "en.wikipedia.org",
+	site: { id: "wikipedia", displayName: "Wikipedia (English)" },
+	origins: [{ hostname: "en.wikipedia.org" }],
 	normalizeUrl: (url: string) => {
 		const u = new URL(url);
 		u.searchParams.delete("action");
@@ -35,9 +36,10 @@ const wikipediaSite = defineSite({
 		maxConcurrent: 3,
 		requestsPerSecond: 10, // higher limit for tests
 	},
+	schemas: { Article },
 	resources: {
 		article: {
-			schema: Schema.Article,
+			schema: "Article",
 			params: {
 				title: {
 					type: "string" as const,
@@ -46,7 +48,7 @@ const wikipediaSite = defineSite({
 				},
 			},
 			resolve: (params: Record<string, string>) => `/wiki/${encodeURIComponent(params.title)}`,
-			ttl: "24h",
+			ttl: { default: "24h", min: "1m", max: "7d" },
 		},
 	},
 	pages: {
@@ -374,12 +376,12 @@ describe("GET /v1/schemas (schema discovery)", () => {
 	});
 
 	it("finds sites for a given schema type", async () => {
-		const res = await app.request(`/v1/schemas/${Schema.Article}/sites`, {
+		const res = await app.request("/v1/schemas/Article/sites", {
 			headers: { Authorization: `Bearer ${plainKey}` },
 		});
 		expect(res.status).toBe(200);
 		const body = await res.json();
-		expect(body.schemaType).toBe(Schema.Article);
+		expect(body.schemaType).toBe("Article");
 		expect(body.sites).toBeInstanceOf(Array);
 	});
 });

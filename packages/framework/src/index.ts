@@ -4,8 +4,9 @@
  * Use {@link defineSite} to create site definitions that describe how to
  * extract structured data from websites. The framework provides:
  *
- * - **Site definitions** — declarative descriptions of a website's structure
+ * - **Site definitions** — declarative descriptions of a website's structure (DSL v2)
  * - **Extraction context** — DOM querying, JSON-LD, and media tracking
+ * - **Origin resolution** — locale-aware hostname derivation
  * - **Test utilities** — run extractors against HTML fixtures without network calls
  * - **Robots.txt parsing** — respect crawl policies
  *
@@ -21,6 +22,12 @@ export { parseRobotsTxt } from "./robots.js";
 export type { RobotsChecker } from "./robots.js";
 export { generateOpenApiSpec } from "./openapi.js";
 
+// Origin / locale derivation
+export { getActiveOrigins, getAllHostnames, getPrimaryHostname } from "./origins.js";
+
+// Standard Schema types
+export type { StandardSchemaV1 } from "./standard-schema.js";
+
 // Test utilities (vitest-free — safe to import at runtime)
 export { createTestContext, matchPagePattern, matchPattern, testExtract } from "./test-harness.js";
 export type { TestHarnessOptions } from "./test-harness.js";
@@ -31,16 +38,20 @@ export type { TestHarnessOptions } from "./test-harness.js";
 
 // Types
 export type {
-	ExtractContext,
-	MediaRef,
-	ParamDef,
-	ResourceDef,
-	PaginateDef,
-	PageDef,
-	RateLimitConfig,
+	CapabilityConfig,
 	CrawlConfig,
+	ExtractContext,
+	FamilyConfig,
+	FrameworkRange,
+	LocaleConfig,
+	MediaRef,
+	Origin,
+	PageDef,
+	PaginateDef,
+	ParamDef,
+	RateLimitConfig,
+	ResourceDef,
+	ResourceTTL,
 	SiteDefinition,
+	SiteIdentity,
 } from "./types.js";
-
-// Re-export schemas for convenience
-export { Schema } from "@sitely/schemas";

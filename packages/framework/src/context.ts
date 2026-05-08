@@ -8,6 +8,8 @@ export interface CreateContextOptions {
 	driver: PageDriver;
 	/** Route params extracted from the URL pattern. */
 	params: Record<string, string>;
+	/** Active locale for this extraction, or `null` if the site has no locales. */
+	locale?: string | null;
 	/** Custom fetch function. Defaults to throwing (unavailable in test contexts). */
 	fetchFn?: (url: string, opts?: RequestInit) => Promise<Response>;
 }
@@ -60,6 +62,7 @@ export function createExtractContext(opts: CreateContextOptions): ExtractContext
 
 		params,
 		url: driver.url,
+		locale: opts.locale ?? null,
 
 		get canonical(): string | null {
 			const link = driver.$('link[rel="canonical"]');

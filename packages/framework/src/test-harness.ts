@@ -13,6 +13,8 @@ export interface TestHarnessOptions {
 	status?: number;
 	/** Override route params (otherwise extracted from URL pattern). */
 	params?: Record<string, string>;
+	/** Active locale for the extraction. Defaults to `null`. */
+	locale?: string | null;
 	/** Validate extracted data against declared schemas (default: true). */
 	validate?: boolean;
 }
@@ -47,6 +49,7 @@ export function createTestContext(opts: TestHarnessOptions): ExtractContext {
 	return createExtractContext({
 		driver,
 		params: opts.params ?? {},
+		locale: opts.locale ?? null,
 	});
 }
 
@@ -167,7 +170,14 @@ export async function testExtract(
 			if (!resource) continue;
 			const extracted = data[resourceName];
 			if (extracted === undefined) continue;
-			const result = validateExtraction(resource.schema, extracted);
+			const validator = site.schemas[resource.schema];
+			if (!validator) {
+				errors.push(
+					`Resource "${resourceName}" references schema "${resource.schema}" but no validator is registered in site.schemas. Add it: schemas: { ${resource.schema}: ... }`,
+				);
+				continue;
+			}
+			const result = validateExtraction(validator, extracted);
 			if (!result.success && result.errors) {
 				errors.push(
 					`Validation failed for "${resourceName}" (schema: ${resource.schema}):\n  ${result.errors.join("\n  ")}`,

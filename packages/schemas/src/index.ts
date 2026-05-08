@@ -1,55 +1,69 @@
 /**
- * `@sitely/schemas` provides TypeScript types for common schema.org entities
- * and the {@link Schema} constant for referencing them by name in site definitions.
+ * `@sitely/schemas` provides Zod-based, schema.org-shaped Standard Schema
+ * validators for use in site definitions.
  *
- * @packageDocumentation
- */
-export type {
-	Thing,
-	Article,
-	Person,
-	Organization,
-	Product,
-	VideoObject,
-	WebPage,
-	ItemList,
-	ListItem,
-	ImageObject,
-	Review,
-	Rating,
-	AggregateRating,
-	SchemaType,
-	SchemaTypeName,
-} from "./types.js";
-
-/**
- * Namespace constant for referencing schema.org types in site definitions.
- * Provides autocompletion and type safety over bare string literals.
+ * Each schema is a `z.ZodObject` with a `.schemaOrgType` and `.schemaOrgVersion`
+ * tag attached as a sibling export. Site definitions reference them by name from
+ * the top-level `schemas` map and use the string name in `resources[].schema`.
+ *
+ * Authors may extend any schema via Zod's normal `.extend()` API for per-site
+ * refinements; the schema.org type tag is preserved.
  *
  * @example
  * ```ts
- * import { Schema } from "@sitely/schemas";
+ * import { defineSite } from "@sitely/framework";
+ * import { Article } from "@sitely/schemas";
  *
- * const resource = {
- *   schema: Schema.Article,
- *   params: { id: { type: "string", required: true } },
- *   resolve: (p) => `/article/${p.id}`,
- *   ttl: "1h",
- * };
+ * const MyArticle = Article.extend({ wordCount: z.number().int().nonnegative() });
+ *
+ * export default defineSite({
+ *   schemas: { Article: MyArticle },
+ *   resources: { article: { schema: "Article", ... } },
+ *   // ...
+ * });
  * ```
+ *
+ * @packageDocumentation
  */
-export const Schema = {
-	Article: "Article" as const,
-	Person: "Person" as const,
-	Organization: "Organization" as const,
-	Product: "Product" as const,
-	VideoObject: "VideoObject" as const,
-	WebPage: "WebPage" as const,
-	ItemList: "ItemList" as const,
-	ImageObject: "ImageObject" as const,
-	Review: "Review" as const,
-} satisfies Record<string, string>;
 
-// Validation
-export { schemaValidators, validateExtraction } from "./validation.js";
+export {
+	AggregateRating,
+	Article,
+	ImageObject,
+	ItemList,
+	ListItem,
+	Organization,
+	Person,
+	Product,
+	Rating,
+	Recipe,
+	Review,
+	Thing,
+	VideoObject,
+	WebPage,
+	schemaOrgMetadata,
+	schemaOrgVersion,
+} from "./schemas.js";
+
+export type {
+	AggregateRatingType,
+	ArticleType,
+	ImageObjectType,
+	ItemListType,
+	ListItemType,
+	OrganizationType,
+	PersonType,
+	ProductType,
+	RatingType,
+	RecipeType,
+	ReviewType,
+	ThingType,
+	VideoObjectType,
+	WebPageType,
+} from "./schemas.js";
+
+// Validation helper used by the test harness to run a Standard Schema validator
+// against extracted data; kept here so test-harness consumers don't need to know
+// the validator vendor.
+export { validateExtraction } from "./validation.js";
 export type { ValidationResult } from "./validation.js";
