@@ -510,6 +510,60 @@ describe("${domain}", () => {
 	console.log(`  3. Run \`pnpm sitely fetch-fixtures ${domain}\` to download fixture HTML`);
 }
 
+// --- migrate command ---
+
+async function runMigrate(cmdArgs: string[]): Promise<void> {
+	const direction = cmdArgs[0];
+	if (direction !== "v1->v2") {
+		console.error(`Usage: sitely migrate v1->v2 [--yes] [paths...]`);
+		console.error(`Got: ${direction ?? "(missing direction)"}`);
+		process.exit(1);
+	}
+
+	const apply = cmdArgs.includes("--yes");
+	const explicitPaths = cmdArgs.slice(1).filter((a) => a !== "--yes");
+	const { migrateFile, renderDiff } = await import("./migrate.js");
+
+	let targets: string[];
+	if (explicitPaths.length > 0) {
+		targets = explicitPaths;
+	} else {
+		const dirs = discoverSiteDirs();
+		targets = dirs.map((d) => resolve(d.path, "index.ts"));
+	}
+
+	if (targets.length === 0) {
+		console.error("No site definition files found.");
+		process.exit(1);
+	}
+
+	let anyChanged = false;
+	let anyAlreadyV2 = false;
+	for (const target of targets) {
+		const result = migrateFile(target, apply);
+		if (!result.changed) {
+			console.log(dim(`= ${result.filePath} (no changes)`));
+			if (result.notes.includes("already v2")) anyAlreadyV2 = true;
+			continue;
+		}
+		anyChanged = true;
+		console.log(green(`${apply ? "✓ migrated" : "Δ would migrate"} ${result.filePath}`));
+		for (const note of result.notes) {
+			console.log(dim(`  - ${note}`));
+		}
+		if (!apply) {
+			console.log(renderDiff(result.original, result.migrated, result.filePath));
+		}
+	}
+
+	if (!apply && anyChanged) {
+		console.log(dim("\nDry run. Re-run with --yes to apply."));
+	}
+	if (!anyChanged && anyAlreadyV2) {
+		console.log(green("All targets already on v2."));
+	}
+}
+
 // --- openapi command ---
 
 async function runOpenApi(cmdArgs: string[]): Promise<void> {
@@ -570,12 +624,17 @@ switch (command) {
 	case "openapi":
 		await runOpenApi(args);
 		break;
+	case "migrate":
+		await runMigrate(args);
+		break;
 	default:
 		console.log(`Usage:
   sitely init <domain>            Scaffold a new site package
   sitely check [domain]           Validate site definitions
   sitely fetch-fixtures [domain]  Fetch example URLs as HTML fixtures
-  sitely openapi [--output file]  Generate OpenAPI 3.1 spec`);
+  sitely openapi [--output file]  Generate OpenAPI 3.1 spec
+  sitely migrate v1->v2 [--yes] [paths...]
+                                  Migrate site defs from v1 DSL to v2 (diff-only by default)`);
 		if (command) {
 			console.error(`\nUnknown command: ${command}`);
 			process.exit(1);
