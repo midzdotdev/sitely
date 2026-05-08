@@ -2,7 +2,7 @@ import { defineConfig } from "vitepress";
 import typedocSidebar from "../api/typedoc-sidebar.json";
 
 export default defineConfig({
-	title: "WAPI",
+	title: "sitely",
 	description: "Turn websites into structured JSON APIs",
 	appearance: "dark",
 	vite: {
@@ -22,7 +22,7 @@ export default defineConfig({
 				{
 					text: "Guide",
 					items: [
-						{ text: "What is WAPI?", link: "/guide/" },
+						{ text: "What is sitely?", link: "/guide/" },
 						{ text: "Getting Started", link: "/guide/getting-started" },
 						{ text: "Writing Site Definitions", link: "/guide/writing-site-definitions" },
 						{ text: "Testing with Fixtures", link: "/guide/testing" },

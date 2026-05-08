@@ -1,5 +1,5 @@
-import { CheerioDriver } from "@wapi/page";
-import { validateExtraction } from "@wapi/schemas";
+import { CheerioDriver } from "@sitely/page";
+import { validateExtraction } from "@sitely/schemas";
 import { createExtractContext } from "./context.js";
 import type { ExtractContext, SiteDefinition } from "./types.js";
 

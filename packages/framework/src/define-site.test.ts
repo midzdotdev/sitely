@@ -1,4 +1,4 @@
-import { CheerioDriver } from "@wapi/page";
+import { CheerioDriver } from "@sitely/page";
 import { describe, expect, it } from "vitest";
 import { defineSite } from "./define-site.js";
 import { extractJsonLd, filterJsonLdByType } from "./json-ld.js";

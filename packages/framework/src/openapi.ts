@@ -623,15 +623,15 @@ export function generateOpenApiSpec(sites: SiteDefinition[]): Record<string, unk
 	return {
 		openapi: "3.1.0",
 		info: {
-			title: "WAPI — Web API",
+			title: "sitely — Web API",
 			version: "0.1.0",
 			description:
 				"Structured data extraction API. Provides site-specific scrapers that return schema.org-typed JSON for supported sites, with a generic fallback extractor for any URL.",
 			contact: {
-				name: "WAPI",
+				name: "sitely",
 			},
 			license: {
-				name: "MIT",
+				name: "Apache-2.0",
 			},
 		},
 		servers: [

@@ -1,10 +1,10 @@
-# @wapi/schemas
+# @sitely/schemas
 
-Hand-written schema.org TypeScript types for WAPI.
+Hand-written schema.org TypeScript types for sitely.
 
 ## Overview
 
-`@wapi/schemas` provides TypeScript interfaces for the most common schema.org entities encountered in web extraction. Each interface maps directly to its schema.org counterpart with all fields optional (extracted data is often incomplete).
+`@sitely/schemas` provides TypeScript interfaces for the most common schema.org entities encountered in web extraction. Each interface maps directly to its schema.org counterpart with all fields optional (extracted data is often incomplete).
 
 These are hand-written rather than auto-generated to keep the MVP simple and include only the fields commonly seen in practice.
 
@@ -17,8 +17,8 @@ Plus utility types: `SchemaType` (union of all types), `SchemaTypeName` (string 
 ## Usage
 
 ```ts
-import { Schema } from "@wapi/schemas";
-import type { Article } from "@wapi/schemas";
+import { Schema } from "@sitely/schemas";
+import type { Article } from "@sitely/schemas";
 
 // Use Schema constant in site definitions for type-safe references
 const resource = {

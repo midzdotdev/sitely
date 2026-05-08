@@ -1,6 +1,6 @@
 # Playground
 
-Explore real extraction results from WAPI site definitions. Select a site and page pattern below to see the structured data that WAPI extracts from HTML fixtures.
+Explore real extraction results from sitely site definitions. Select a site and page pattern below to see the structured data that sitely extracts from HTML fixtures.
 
 <script setup>
 import Playground from './.vitepress/components/Playground.vue'

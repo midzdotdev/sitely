@@ -1,4 +1,4 @@
-import { Schema, defineSite } from "@wapi/framework";
+import { Schema, defineSite } from "@sitely/framework";
 
 export default defineSite({
 	name: "Wikipedia (English)",

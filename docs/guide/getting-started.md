@@ -33,20 +33,20 @@ curl -X POST http://localhost:3000/v1/auth/signup \
   -d '{"email": "user@example.com", "name": "User"}'
 ```
 
-This returns an API key prefixed with `wapi_sk_`.
+This returns an API key prefixed with `sitely_sk_`.
 
 ### Extract from a known site
 
 ```bash
 curl http://localhost:3000/v1/sites/en.wikipedia.org/article?title=TypeScript \
-  -H "Authorization: Bearer wapi_sk_..."
+  -H "Authorization: Bearer sitely_sk_..."
 ```
 
 ### Extract from any URL
 
 ```bash
 curl "http://localhost:3000/v1/extract?url=https://example.com" \
-  -H "Authorization: Bearer wapi_sk_..."
+  -H "Authorization: Bearer sitely_sk_..."
 ```
 
 The generic extractor returns JSON-LD, OpenGraph, Twitter Cards, and meta tags from any URL.
@@ -55,7 +55,7 @@ The generic extractor returns JSON-LD, OpenGraph, Twitter Cards, and meta tags f
 
 ```bash
 curl http://localhost:3000/v1/sites \
-  -H "Authorization: Bearer wapi_sk_..."
+  -H "Authorization: Bearer sitely_sk_..."
 ```
 
 ## API Endpoints

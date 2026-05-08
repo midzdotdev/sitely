@@ -1,4 +1,4 @@
-import type { PageDriver } from "@wapi/page";
+import type { PageDriver } from "@sitely/page";
 
 /**
  * Extract and parse all JSON-LD blocks from a page.

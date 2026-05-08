@@ -21,7 +21,7 @@ export interface CacheSetOptions {
 	ttlSeconds: number;
 }
 
-const REDIS_CACHE_PREFIX = "wapi:cache:";
+const REDIS_CACHE_PREFIX = "sitely:cache:";
 
 /**
  * Create a deterministic hash of sorted params for cache lookup.

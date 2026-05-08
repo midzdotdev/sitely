@@ -1,10 +1,10 @@
-# @wapi/page
+# @sitely/page
 
 DOM abstraction layer for reading web pages.
 
 ## Overview
 
-`@wapi/page` provides a uniform read-only API for querying HTML regardless of the underlying parsing engine. The core interfaces — `PageElement` and `PageDriver` — are implemented by `CheerioDriver` for fast static HTML parsing in the MVP, with future drivers (JSDOM, Playwright) following the same interface.
+`@sitely/page` provides a uniform read-only API for querying HTML regardless of the underlying parsing engine. The core interfaces — `PageElement` and `PageDriver` — are implemented by `CheerioDriver` for fast static HTML parsing in the MVP, with future drivers (JSDOM, Playwright) following the same interface.
 
 ## Exports
 
@@ -19,7 +19,7 @@ DOM abstraction layer for reading web pages.
 ## Usage
 
 ```ts
-import { CheerioDriver } from "@wapi/page";
+import { CheerioDriver } from "@sitely/page";
 
 const driver = new CheerioDriver({
   rawHtml: "<html><body><h1>Hello</h1><ul><li>A</li><li>B</li></ul></body></html>",
@@ -33,7 +33,7 @@ const title = driver.$("h1")?.text(); // "Hello"
 const items = driver.$$("li").map(el => el.text()); // ["A", "B"]
 
 // Safe chaining with NULL_ELEMENT
-import { NULL_ELEMENT } from "@wapi/page";
+import { NULL_ELEMENT } from "@sitely/page";
 const missing = driver.$(".nonexistent") ?? NULL_ELEMENT;
 console.log(missing.text()); // "" (no error)
 ```

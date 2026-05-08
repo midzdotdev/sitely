@@ -1,7 +1,7 @@
 ---
 layout: home
 hero:
-  name: WAPI
+  name: sitely
   tagline: Turn websites into structured JSON APIs
   actions:
     - theme: brand

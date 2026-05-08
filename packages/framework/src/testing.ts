@@ -1,9 +1,9 @@
 /**
  * Vitest-dependent test helpers for site authors.
  *
- * Import from `@wapi/framework/testing` in test files.
+ * Import from `@sitely/framework/testing` in test files.
  * These are separated from the main entry point so that runtime
- * code (CLI, server) can import `@wapi/framework` without pulling in vitest.
+ * code (CLI, server) can import `@sitely/framework` without pulling in vitest.
  *
  * @packageDocumentation
  */

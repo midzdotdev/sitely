@@ -3,8 +3,8 @@ import {
 	type SiteDefinition,
 	createExtractContext,
 	matchPagePattern,
-} from "@wapi/framework";
-import { CheerioDriver } from "@wapi/page";
+} from "@sitely/framework";
+import { CheerioDriver } from "@sitely/page";
 import type { Redis } from "ioredis";
 import type { Logger } from "pino";
 import { fetchPage } from "../http-client.js";

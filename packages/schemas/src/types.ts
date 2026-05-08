@@ -1,5 +1,5 @@
 /**
- * Hand-written schema.org types for the WAPI MVP.
+ * Hand-written schema.org types for the sitely MVP.
  *
  * These cover the most common structured data types encountered in web extraction.
  * Each interface maps directly to its schema.org counterpart. All fields are optional

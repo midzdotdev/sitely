@@ -4,7 +4,7 @@ import type { Context, Next } from "hono";
 import { apiKeys } from "../db/schema.js";
 import type { AppEnv } from "../types.js";
 
-const API_KEY_PREFIX = "wapi_sk_";
+const API_KEY_PREFIX = "sitely_sk_";
 
 /** Synthetic IDs used when the dev API key bypasses normal auth. */
 const DEV_CONSUMER_ID = "00000000-0000-0000-0000-000000000000";
@@ -21,11 +21,11 @@ export function hashApiKey(key: string): string {
  * Auth middleware that validates Bearer token API keys.
  * Sets c.set("consumerId", ...) and c.set("apiKeyId", ...) on success.
  *
- * If `WAPI_DEV_API_KEY` is set, any request bearing that exact key
+ * If `SITELY_DEV_API_KEY` is set, any request bearing that exact key
  * skips the database entirely and authenticates as a synthetic dev consumer.
  */
 export function authMiddleware() {
-	const devKey = process.env.WAPI_DEV_API_KEY?.trim() || null;
+	const devKey = process.env.SITELY_DEV_API_KEY?.trim() || null;
 
 	return async (c: Context<AppEnv>, next: Next) => {
 		const authHeader = c.req.header("Authorization");
@@ -34,7 +34,7 @@ export function authMiddleware() {
 				{
 					error: {
 						code: "unauthorized",
-						message: "Missing or invalid Authorization header. Expected: Bearer wapi_sk_...",
+						message: "Missing or invalid Authorization header. Expected: Bearer sitely_sk_...",
 						status: 401,
 					},
 				},
@@ -56,7 +56,7 @@ export function authMiddleware() {
 				{
 					error: {
 						code: "unauthorized",
-						message: "Invalid API key format. Expected prefix: wapi_sk_",
+						message: "Invalid API key format. Expected prefix: sitely_sk_",
 						status: 401,
 					},
 				},

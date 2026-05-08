@@ -1,4 +1,4 @@
-import { createFixtureLoader, describePageExtraction } from "@wapi/framework/testing";
+import { createFixtureLoader, describePageExtraction } from "@sitely/framework/testing";
 import { describe, expect } from "vitest";
 import site from "./index.js";
 

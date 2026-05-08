@@ -7,8 +7,8 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { matchPagePattern } from "@wapi/framework/testing";
-import type { SiteDefinition } from "@wapi/framework/testing";
+import { matchPagePattern } from "@sitely/framework/testing";
+import type { SiteDefinition } from "@sitely/framework/testing";
 import { describe, expect, it } from "vitest";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));

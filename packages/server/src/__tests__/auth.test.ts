@@ -41,19 +41,19 @@ describe("Auth middleware", () => {
 		expect(body.error.message).toContain("Bearer");
 	});
 
-	it("rejects keys without the wapi_sk_ prefix", async () => {
+	it("rejects keys without the sitely_sk_ prefix", async () => {
 		const res = await app.request("/v1/sites", {
 			headers: { Authorization: "Bearer invalid_prefix_key" },
 		});
 		expect(res.status).toBe(401);
 		const body = await res.json();
 		expect(body.error.code).toBe("unauthorized");
-		expect(body.error.message).toContain("wapi_sk_");
+		expect(body.error.message).toContain("sitely_sk_");
 	});
 
 	it("rejects keys that are not in the database", async () => {
 		const res = await app.request("/v1/sites", {
-			headers: { Authorization: "Bearer wapi_sk_nonexistent000000000000000000000000" },
+			headers: { Authorization: "Bearer sitely_sk_nonexistent000000000000000000000000" },
 		});
 		expect(res.status).toBe(401);
 		const body = await res.json();
@@ -69,11 +69,11 @@ describe("Auth middleware", () => {
 		expect(res.status).toBe(200);
 	});
 
-	describe("dev API key (WAPI_DEV_API_KEY)", () => {
+	describe("dev API key (SITELY_DEV_API_KEY)", () => {
 		const DEV_KEY = "my-dev-key-for-testing";
 
 		beforeEach(() => {
-			vi.stubEnv("WAPI_DEV_API_KEY", DEV_KEY);
+			vi.stubEnv("SITELY_DEV_API_KEY", DEV_KEY);
 		});
 
 		afterEach(() => {
@@ -90,7 +90,7 @@ describe("Auth middleware", () => {
 			expect(res.status).toBe(200);
 		});
 
-		it("does not require the wapi_sk_ prefix for dev keys", async () => {
+		it("does not require the sitely_sk_ prefix for dev keys", async () => {
 			const { app: devApp } = createTestApp();
 
 			const res = await devApp.request("/v1/sites", {
@@ -148,7 +148,7 @@ describe("API key management", () => {
 		expect(res.status).toBe(201);
 		const body = await res.json();
 		expect(body.apiKey).toBeDefined();
-		expect(body.apiKey).toMatch(/^wapi_sk_/);
+		expect(body.apiKey).toMatch(/^sitely_sk_/);
 		expect(body.keyId).toBeDefined();
 
 		// Verify the new key was stored
@@ -171,7 +171,7 @@ describe("API key management", () => {
 		});
 		expect(res.status).toBe(201);
 		const body = await res.json();
-		expect(body.apiKey).toMatch(/^wapi_sk_/);
+		expect(body.apiKey).toMatch(/^sitely_sk_/);
 	});
 
 	it("revokes an API key via DELETE /v1/auth/keys/:id", async () => {
@@ -244,20 +244,20 @@ describe("Balance endpoint", () => {
 
 describe("hashApiKey", () => {
 	it("produces consistent hashes for the same input", () => {
-		const key = "wapi_sk_testkey123";
+		const key = "sitely_sk_testkey123";
 		const hash1 = hashApiKey(key);
 		const hash2 = hashApiKey(key);
 		expect(hash1).toBe(hash2);
 	});
 
 	it("produces different hashes for different inputs", () => {
-		const hash1 = hashApiKey("wapi_sk_key1");
-		const hash2 = hashApiKey("wapi_sk_key2");
+		const hash1 = hashApiKey("sitely_sk_key1");
+		const hash2 = hashApiKey("sitely_sk_key2");
 		expect(hash1).not.toBe(hash2);
 	});
 
 	it("produces a hex string", () => {
-		const hash = hashApiKey("wapi_sk_test");
+		const hash = hashApiKey("sitely_sk_test");
 		expect(hash).toMatch(/^[a-f0-9]+$/);
 	});
 });

@@ -5,7 +5,7 @@ Site definitions live in `sites/<domain>/index.ts`. Each definition describes a 
 ## Basic Structure
 
 ```ts
-import { Schema, defineSite } from "@wapi/framework";
+import { Schema, defineSite } from "@sitely/framework";
 
 export default defineSite({
   name: "Example Blog",
@@ -71,7 +71,7 @@ URL patterns use `:param` syntax for dynamic segments:
 
 ### Validation
 
-The `validate` function checks whether the fetched page is real (not a 404 page, captcha, or block page). It receives an [`ExtractContext`](/api/@wapi/framework/interfaces/ExtractContext) and returns a boolean:
+The `validate` function checks whether the fetched page is real (not a 404 page, captcha, or block page). It receives an [`ExtractContext`](/api/@sitely/framework/interfaces/ExtractContext) and returns a boolean:
 
 ```ts
 validate: (ctx) => ctx.$("article")?.exists() === true,

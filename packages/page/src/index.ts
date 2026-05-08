@@ -1,5 +1,5 @@
 /**
- * `@wapi/page` provides a DOM abstraction layer for reading web pages.
+ * `@sitely/page` provides a DOM abstraction layer for reading web pages.
  *
  * The core interfaces {@link PageElement} and {@link PageDriver} define a
  * uniform read-only API that works across different HTML parsing engines.

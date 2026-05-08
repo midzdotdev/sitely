@@ -1,5 +1,5 @@
 /**
- * `@wapi/schemas` provides TypeScript types for common schema.org entities
+ * `@sitely/schemas` provides TypeScript types for common schema.org entities
  * and the {@link Schema} constant for referencing them by name in site definitions.
  *
  * @packageDocumentation
@@ -28,7 +28,7 @@ export type {
  *
  * @example
  * ```ts
- * import { Schema } from "@wapi/schemas";
+ * import { Schema } from "@sitely/schemas";
  *
  * const resource = {
  *   schema: Schema.Article,

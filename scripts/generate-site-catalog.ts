@@ -153,7 +153,7 @@ function generateSiteSection(site: SiteDefinition): string {
 		lines.push("");
 		lines.push("```bash");
 		lines.push(`curl http://localhost:3000/v1/sites/${site.domain}/${resourceName}${queryPart} \\`);
-		lines.push('  -H "Authorization: Bearer wapi_sk_..."');
+		lines.push('  -H "Authorization: Bearer sitely_sk_..."');
 		lines.push("```");
 		lines.push("");
 	}
@@ -197,7 +197,7 @@ async function main() {
 	lines.push("# Site Catalog");
 	lines.push("");
 	lines.push(
-		"WAPI ships with community-maintained site definitions that know how to extract structured data from specific websites. Each site definition declares its resources, URL patterns, and extraction logic.",
+		"sitely ships with community-maintained site definitions that know how to extract structured data from specific websites. Each site definition declares its resources, URL patterns, and extraction logic.",
 	);
 	lines.push("");
 	lines.push(

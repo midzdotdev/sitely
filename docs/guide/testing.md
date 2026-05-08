@@ -21,7 +21,7 @@ sites/
 Use `matchPagePattern` to verify that a URL resolves to the correct page definition:
 
 ```ts
-import { matchPagePattern } from "@wapi/framework";
+import { matchPagePattern } from "@sitely/framework";
 import site from "./index.js";
 
 const match = matchPagePattern(
@@ -33,10 +33,10 @@ const match = matchPagePattern(
 
 ## Creating a Test Context
 
-`createTestContext` builds an [`ExtractContext`](/api/@wapi/framework/interfaces/ExtractContext) from raw HTML. Use it when you need to test `validate` or `extract` functions individually:
+`createTestContext` builds an [`ExtractContext`](/api/@sitely/framework/interfaces/ExtractContext) from raw HTML. Use it when you need to test `validate` or `extract` functions individually:
 
 ```ts
-import { createTestContext } from "@wapi/framework";
+import { createTestContext } from "@sitely/framework";
 
 const ctx = createTestContext({
   html: '<html><body><h1>Hello</h1></body></html>',
@@ -54,7 +54,7 @@ const title = ctx.$("h1")?.text(); // "Hello"
 ```ts
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { matchPagePattern, testExtract } from "@wapi/framework";
+import { matchPagePattern, testExtract } from "@sitely/framework";
 import site from "./index.js";
 
 const fixture = readFileSync("./fixtures/wiki-typescript.html", "utf-8");

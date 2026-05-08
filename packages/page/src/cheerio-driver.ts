@@ -152,7 +152,7 @@ export interface CheerioDriverOptions {
  *
  * @example
  * ```ts
- * import { CheerioDriver } from "@wapi/page";
+ * import { CheerioDriver } from "@sitely/page";
  *
  * const driver = new CheerioDriver({
  *   rawHtml: "<html><body><h1>Hello</h1></body></html>",

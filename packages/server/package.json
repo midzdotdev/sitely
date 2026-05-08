@@ -1,5 +1,5 @@
 {
-	"name": "@wapi/server",
+	"name": "@sitely/server",
 	"version": "0.1.0",
 	"private": true,
 	"type": "module",
@@ -20,9 +20,9 @@
 	},
 	"dependencies": {
 		"@hono/node-server": "^1.13.7",
-		"@wapi/framework": "workspace:*",
-		"@wapi/page": "workspace:*",
-		"@wapi/schemas": "workspace:*",
+		"@sitely/framework": "workspace:*",
+		"@sitely/page": "workspace:*",
+		"@sitely/schemas": "workspace:*",
 		"drizzle-orm": "^0.38.3",
 		"hono": "^4.6.16",
 		"ioredis": "^5.4.2",

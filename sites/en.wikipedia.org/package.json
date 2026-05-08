@@ -1,5 +1,5 @@
 {
-	"name": "@wapi/site-en-wikipedia-org",
+	"name": "@sitely/site-en-wikipedia-org",
 	"version": "0.1.0",
 	"private": true,
 	"type": "module",
@@ -15,9 +15,9 @@
 		"test": "vitest run"
 	},
 	"dependencies": {
-		"@wapi/framework": "workspace:*",
-		"@wapi/page": "workspace:*",
-		"@wapi/schemas": "workspace:*"
+		"@sitely/framework": "workspace:*",
+		"@sitely/page": "workspace:*",
+		"@sitely/schemas": "workspace:*"
 	},
 	"devDependencies": {
 		"@types/node": "^25.2.2",

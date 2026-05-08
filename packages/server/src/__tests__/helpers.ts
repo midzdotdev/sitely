@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import type { SiteDefinition } from "@wapi/framework";
+import type { SiteDefinition } from "@sitely/framework";
 import type { Redis } from "ioredis";
 import pino from "pino";
 import { createApp } from "../app.js";
@@ -16,7 +16,7 @@ interface RedisEntry {
 
 /**
  * Create an in-memory Redis mock that supports the subset of commands
- * used by the WAPI server (get, set, del, ping, pipeline, incr, decr,
+ * used by the sitely server (get, set, del, ping, pipeline, incr, decr,
  * zadd, zcard, zremrangebyscore, pexpire).
  */
 export function createMockRedis(): Redis {
@@ -652,7 +652,7 @@ export function createTestApiKey(
 ): TestApiKeyResult {
 	const consumerId = randomUUID();
 	const apiKeyId = randomUUID();
-	const plainKey = `wapi_sk_${randomBytes(32).toString("hex")}`;
+	const plainKey = `sitely_sk_${randomBytes(32).toString("hex")}`;
 	const keyHash = hashApiKey(plainKey);
 
 	data.consumers.push({

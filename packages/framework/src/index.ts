@@ -1,5 +1,5 @@
 /**
- * `@wapi/framework` is the core site definition DSL for WAPI.
+ * `@sitely/framework` is the core site definition DSL for sitely.
  *
  * Use {@link defineSite} to create site definitions that describe how to
  * extract structured data from websites. The framework provides:
@@ -25,7 +25,7 @@ export { generateOpenApiSpec } from "./openapi.js";
 export { createTestContext, matchPagePattern, matchPattern, testExtract } from "./test-harness.js";
 export type { TestHarnessOptions } from "./test-harness.js";
 
-// Vitest-dependent test helpers are exported from "@wapi/framework/testing"
+// Vitest-dependent test helpers are exported from "@sitely/framework/testing"
 // to avoid pulling vitest into runtime/CLI imports.
 // See ./testing.ts for: createFixtureLoader, loadFixtureManifest, describePageExtraction
 
@@ -43,4 +43,4 @@ export type {
 } from "./types.js";
 
 // Re-export schemas for convenience
-export { Schema } from "@wapi/schemas";
+export { Schema } from "@sitely/schemas";

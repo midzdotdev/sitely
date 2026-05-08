@@ -1,4 +1,4 @@
-# WAPI Architecture
+# sitely Architecture
 
 ```mermaid
 graph TB
@@ -6,7 +6,7 @@ graph TB
         Client["HTTP Client<br/>(API Consumer)"]
     end
 
-    subgraph "API Server (@wapi/server)"
+    subgraph "API Server (@sitely/server)"
         API["Hono API Server<br/>:3000"]
         Auth["Auth Service<br/>(API Keys)"]
         Billing["Billing Service<br/>(Token Tracking)"]
@@ -29,9 +29,9 @@ graph TB
     end
 
     subgraph "Core Packages"
-        Framework["@wapi/framework<br/>(Site DSL, Test Utils, CLI)"]
-        Page["@wapi/page<br/>(DOM Abstraction)"]
-        Schemas["@wapi/schemas<br/>(schema.org Types)"]
+        Framework["@sitely/framework<br/>(Site DSL, Test Utils, CLI)"]
+        Page["@sitely/page<br/>(DOM Abstraction)"]
+        Schemas["@sitely/schemas<br/>(schema.org Types)"]
     end
 
     Client -->|"API Request"| API
@@ -72,7 +72,7 @@ graph TB
 
 ## Component Overview
 
-### **API Layer** (`@wapi/server`)
+### **API Layer** (`@sitely/server`)
 - **Hono Server**: REST API handling HTTP requests
 - **Auth Service**: API key generation and validation
 - **Rate Limiter**: Per-site and per-API-key rate limiting
@@ -83,9 +83,9 @@ graph TB
 - **Site Loader**: Dynamic loading of site definitions
 
 ### **Core Packages**
-- **@wapi/framework**: Site definition DSL, extraction context, test utilities, CLI tools
-- **@wapi/page**: DOM abstraction layer (PageElement, PageDriver, CheerioDriver)
-- **@wapi/schemas**: Hand-written schema.org TypeScript types
+- **@sitely/framework**: Site definition DSL, extraction context, test utilities, CLI tools
+- **@sitely/page**: DOM abstraction layer (PageElement, PageDriver, CheerioDriver)
+- **@sitely/schemas**: Hand-written schema.org TypeScript types
 
 ### **Site Definitions**
 - **Site Modules**: TypeScript modules defining URL patterns, extraction logic, and validation
@@ -106,7 +106,7 @@ graph TB
    - Validates **robots.txt** via Robots Service
    - Loads site definition via **Site Loader**
    - Fetches HTML if not cached
-   - Runs extraction using **@wapi/framework** + **@wapi/page**
+   - Runs extraction using **@sitely/framework** + **@sitely/page**
    - Returns schema.org-typed JSON
 5. **Billing Service** tracks token usage
 6. Response sent to client

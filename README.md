@@ -1,14 +1,14 @@
-# WAPI
+# sitely
 
 Turn websites into structured JSON APIs.
 
-## What is WAPI?
+## What is sitely?
 
-WAPI is a web extraction service that converts websites into typed, structured data via a REST API. It combines **site-specific extractors** — community-driven scraper definitions that know exactly how to parse a given website — with a **generic fallback** that extracts JSON-LD, OpenGraph, Twitter Cards, and meta tags from any URL.
+sitely is a web extraction service that converts websites into typed, structured data via a REST API. It combines **site-specific extractors** — community-driven scraper definitions that know exactly how to parse a given website — with a **generic fallback** that extracts JSON-LD, OpenGraph, Twitter Cards, and meta tags from any URL.
 
 Site definitions are declarative TypeScript modules that describe a website's URL patterns, validation rules, and extraction logic. They produce schema.org-typed output, are tested against HTML fixtures, and respect robots.txt. The server handles caching, rate limiting, request coalescing, and usage tracking.
 
-## Why WAPI?
+## Why sitely?
 
 - **Typed output** — every response maps to a schema.org type (Article, Product, ItemList, etc.), not arbitrary key-value blobs
 - **Testable extractors** — site definitions run against HTML fixtures in CI, catching breakage before deployment
@@ -21,10 +21,10 @@ Site definitions are declarative TypeScript modules that describe a website's UR
 
 | Package | Description |
 |---------|-------------|
-| `@wapi/page` | DOM abstraction layer (PageElement, PageDriver, CheerioDriver) |
-| `@wapi/schemas` | Hand-written schema.org TypeScript types |
-| `@wapi/framework` | Site definition DSL, extraction context, test utilities |
-| `@wapi/server` | HTTP API server (Hono, Postgres, Redis) |
+| `@sitely/page` | DOM abstraction layer (PageElement, PageDriver, CheerioDriver) |
+| `@sitely/schemas` | Hand-written schema.org TypeScript types |
+| `@sitely/framework` | Site definition DSL, extraction context, test utilities |
+| `@sitely/server` | HTTP API server (Hono, Postgres, Redis) |
 
 ## Getting Started
 
@@ -60,15 +60,15 @@ curl -X POST http://localhost:3000/v1/auth/signup \
 
 # Extract a Wikipedia article
 curl http://localhost:3000/v1/sites/en.wikipedia.org/article?title=TypeScript \
-  -H "Authorization: Bearer wapi_sk_..."
+  -H "Authorization: Bearer sitely_sk_..."
 
 # Extract from any URL (fallback extraction)
 curl "http://localhost:3000/v1/extract?url=https://example.com" \
-  -H "Authorization: Bearer wapi_sk_..."
+  -H "Authorization: Bearer sitely_sk_..."
 
 # List available sites
 curl http://localhost:3000/v1/sites \
-  -H "Authorization: Bearer wapi_sk_..."
+  -H "Authorization: Bearer sitely_sk_..."
 ```
 
 ## Writing a Site Definition
@@ -76,7 +76,7 @@ curl http://localhost:3000/v1/sites \
 Site definitions live in `sites/<domain>/index.ts`. Here's a minimal example:
 
 ```ts
-import { Schema, defineSite } from "@wapi/framework";
+import { Schema, defineSite } from "@sitely/framework";
 
 export default defineSite({
   name: "Example Blog",
@@ -115,7 +115,7 @@ Save an HTML fixture and write tests using the framework's test utilities:
 ```ts
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { matchPagePattern, testExtract } from "@wapi/framework";
+import { matchPagePattern, testExtract } from "@sitely/framework";
 import site from "./index.js";
 
 const fixture = readFileSync("./fixtures/hello-world.html", "utf-8");

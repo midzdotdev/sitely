@@ -1,4 +1,4 @@
-import type { SiteDefinition } from "@wapi/framework";
+import type { SiteDefinition } from "@sitely/framework";
 import type { Logger } from "pino";
 
 /**

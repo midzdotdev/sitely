@@ -105,5 +105,5 @@ export async function grantTokens(db: Db, consumerId: string, amount: number): P
 }
 
 function generateApiKey(): string {
-	return `wapi_sk_${randomBytes(32).toString("hex")}`;
+	return `sitely_sk_${randomBytes(32).toString("hex")}`;
 }

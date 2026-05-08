@@ -1,10 +1,10 @@
-# @wapi/server
+# @sitely/server
 
-HTTP API server for WAPI.
+HTTP API server for sitely.
 
 ## Overview
 
-`@wapi/server` is the runtime that serves the WAPI REST API. It is not a library — it's the application entry point that wires together the framework, site definitions, database, cache, and HTTP layer.
+`@sitely/server` is the runtime that serves the sitely REST API. It is not a library — it's the application entry point that wires together the framework, site definitions, database, cache, and HTTP layer.
 
 ## Architecture
 

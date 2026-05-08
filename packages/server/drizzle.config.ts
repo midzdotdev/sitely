@@ -5,6 +5,6 @@ export default defineConfig({
 	out: "./drizzle",
 	dialect: "postgresql",
 	dbCredentials: {
-		url: process.env.DATABASE_URL ?? "postgres://wapi:wapi@localhost:5432/wapi",
+		url: process.env.DATABASE_URL ?? "postgres://sitely:sitely@localhost:5432/sitely",
 	},
 });

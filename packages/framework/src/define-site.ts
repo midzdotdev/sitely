@@ -12,7 +12,7 @@ import type { SiteDefinition } from "./types.js";
  *
  * @example
  * ```ts
- * import { Schema, defineSite } from "@wapi/framework";
+ * import { Schema, defineSite } from "@sitely/framework";
  *
  * export default defineSite({
  *   name: "My Site",

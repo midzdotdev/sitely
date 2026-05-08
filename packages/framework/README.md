@@ -1,10 +1,10 @@
-# @wapi/framework
+# @sitely/framework
 
-Core site definition DSL for WAPI.
+Core site definition DSL for sitely.
 
 ## Overview
 
-`@wapi/framework` provides the tools for defining how to extract structured data from websites. A site definition declares URL patterns, validation rules, and extraction logic. The framework also provides test utilities for running extractors against HTML fixtures without network calls.
+`@sitely/framework` provides the tools for defining how to extract structured data from websites. A site definition declares URL patterns, validation rules, and extraction logic. The framework also provides test utilities for running extractors against HTML fixtures without network calls.
 
 ## Key Concepts
 
@@ -23,7 +23,7 @@ The context object passed to `validate` and `extract` functions. Provides DOM qu
 ## Creating a Site Definition
 
 ```ts
-import { Schema, defineSite } from "@wapi/framework";
+import { Schema, defineSite } from "@sitely/framework";
 
 export default defineSite({
   name: "Example",
@@ -57,7 +57,7 @@ export default defineSite({
 ## Testing with Fixtures
 
 ```ts
-import { createTestContext, matchPagePattern, testExtract } from "@wapi/framework";
+import { createTestContext, matchPagePattern, testExtract } from "@sitely/framework";
 
 // Match a URL to a page pattern
 const match = matchPagePattern(site, "https://example.com/article/123");
@@ -91,7 +91,7 @@ const result = await testExtract(site, "/article/:id", {
 | `matchPagePattern` | Function | Match a URL to a site's page patterns |
 | `matchPattern` | Function | Match a pathname against a route pattern |
 | `testExtract` | Function | Run validate + extract against a fixture |
-| `Schema` | Constant | Re-exported from @wapi/schemas |
+| `Schema` | Constant | Re-exported from @sitely/schemas |
 | `SiteDefinition` | Type | Complete site definition |
 | `PageDef` | Type | Page definition |
 | `ExtractContext` | Type | Extraction context |

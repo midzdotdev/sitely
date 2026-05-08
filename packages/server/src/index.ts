@@ -1,5 +1,5 @@
 import { serve } from "@hono/node-server";
-import type { SiteDefinition } from "@wapi/framework";
+import type { SiteDefinition } from "@sitely/framework";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { Redis } from "ioredis";
 import pino from "pino";
@@ -14,7 +14,7 @@ async function main() {
 		level: process.env.LOG_LEVEL ?? "info",
 	});
 
-	const databaseUrl = process.env.DATABASE_URL ?? "postgres://wapi:wapi@localhost:5432/wapi";
+	const databaseUrl = process.env.DATABASE_URL ?? "postgres://sitely:sitely@localhost:5432/sitely";
 	const redisUrl = process.env.REDIS_URL ?? "redis://localhost:6379";
 	const port = Number.parseInt(process.env.PORT ?? "3000", 10);
 
@@ -113,7 +113,7 @@ async function main() {
 	const app = createApp(db, redis, logger);
 
 	const server = serve({ fetch: app.fetch, port }, (info) => {
-		logger.info({ port: info.port }, "WAPI server started");
+		logger.info({ port: info.port }, "sitely server started");
 	});
 
 	// Graceful shutdown

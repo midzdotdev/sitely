@@ -1,5 +1,5 @@
-import type { PageElement } from "@wapi/page";
-import type { SchemaTypeName } from "@wapi/schemas";
+import type { PageElement } from "@sitely/page";
+import type { SchemaTypeName } from "@sitely/schemas";
 
 /**
  * Reference to a media URL discovered during extraction.
@@ -203,7 +203,7 @@ export interface CrawlConfig {
  *
  * @example
  * ```ts
- * import { Schema, defineSite } from "@wapi/framework";
+ * import { Schema, defineSite } from "@sitely/framework";
  *
  * export default defineSite({
  *   name: "Example",

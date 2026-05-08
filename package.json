@@ -1,5 +1,5 @@
 {
-	"name": "wapi",
+	"name": "sitely",
 	"private": true,
 	"scripts": {
 		"build": "turbo build",
@@ -9,7 +9,7 @@
 		"lint:fix": "biome check --write .",
 		"dev": "turbo dev",
 		"test:validate": "vitest run --config vitest.validate.config.ts",
-		"wapi": "node packages/framework/dist/cli.js",
+		"sitely": "node packages/framework/dist/cli.js",
 		"openapi": "node packages/framework/dist/cli.js openapi",
 		"docs:generate": "typedoc",
 		"docs:catalog": "tsx scripts/generate-site-catalog.ts",

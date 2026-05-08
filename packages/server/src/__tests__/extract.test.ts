@@ -1,4 +1,4 @@
-import { Schema, defineSite } from "@wapi/framework";
+import { Schema, defineSite } from "@sitely/framework";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { MockDbData } from "./helpers.js";
 import { WIKIPEDIA_FIXTURE_HTML, createTestApiKey, createTestApp } from "./helpers.js";
@@ -133,21 +133,21 @@ describe("GET /v1/extract (URL-based extraction)", () => {
 
 	it("returns 401 with an invalid API key", async () => {
 		const res = await app.request("/v1/extract?url=https://en.wikipedia.org/wiki/TypeScript", {
-			headers: { Authorization: "Bearer wapi_sk_invalidkey123" },
+			headers: { Authorization: "Bearer sitely_sk_invalidkey123" },
 		});
 		expect(res.status).toBe(401);
 		const body = await res.json();
 		expect(body.error.code).toBe("unauthorized");
 	});
 
-	it("returns 401 with a non-wapi-prefixed key", async () => {
+	it("returns 401 with a non-sitely-prefixed key", async () => {
 		const res = await app.request("/v1/extract?url=https://en.wikipedia.org/wiki/TypeScript", {
 			headers: { Authorization: "Bearer some_random_key" },
 		});
 		expect(res.status).toBe(401);
 		const body = await res.json();
 		expect(body.error.code).toBe("unauthorized");
-		expect(body.error.message).toContain("wapi_sk_");
+		expect(body.error.message).toContain("sitely_sk_");
 	});
 
 	it("returns 400 when url query parameter is missing", async () => {
@@ -428,7 +428,7 @@ describe("POST /v1/auth/signup", () => {
 		const body = await res.json();
 		expect(body.consumerId).toBeDefined();
 		expect(body.apiKey).toBeDefined();
-		expect(body.apiKey).toMatch(/^wapi_sk_/);
+		expect(body.apiKey).toMatch(/^sitely_sk_/);
 		expect(body.tokenBalance).toBe(10_000);
 	});
 

@@ -1,4 +1,4 @@
-import { type RobotsChecker, parseRobotsTxt } from "@wapi/framework";
+import { type RobotsChecker, parseRobotsTxt } from "@sitely/framework";
 import { and, eq, gt } from "drizzle-orm";
 import type { Redis } from "ioredis";
 import type { Logger } from "pino";
@@ -6,7 +6,7 @@ import { robotsTxtCache } from "../db/schema.js";
 import type { Db } from "../types.js";
 
 const ROBOTS_TTL_HOURS = 24;
-const REDIS_PREFIX = "wapi:robots:";
+const REDIS_PREFIX = "sitely:robots:";
 
 /** In-memory cache for parsed robots.txt checkers. */
 const checkerCache = new Map<string, { checker: RobotsChecker; expiresAt: number }>();

@@ -303,7 +303,7 @@ async function runFetchFixtures(domain?: string): Promise<void> {
 					const resp = await fetch(exampleUrl, {
 						headers: {
 							"User-Agent":
-								"Mozilla/5.0 (compatible; WAPI fixture fetcher; +https://github.com/nicholasgriffintn/wapi)",
+								"Mozilla/5.0 (compatible; sitely fixture fetcher; +https://github.com/nicholasgriffintn/wapi)",
 						},
 					});
 					if (!resp.ok) {
@@ -333,7 +333,7 @@ async function runFetchFixtures(domain?: string): Promise<void> {
 function validateDomain(domain: string): void {
 	if (!domain) {
 		console.error("Error: domain is required.\n");
-		console.error("Usage: wapi init <domain>");
+		console.error("Usage: sitely init <domain>");
 		process.exit(1);
 	}
 	if (domain.includes("://")) {
@@ -365,7 +365,7 @@ function runInit(domain: string): void {
 
 	const slug = slugify(domain);
 	const pkg = {
-		name: `@wapi/site-${slug}`,
+		name: `@sitely/site-${slug}`,
 		private: true,
 		version: "0.1.0",
 		type: "module",
@@ -375,7 +375,7 @@ function runInit(domain: string): void {
 			test: "vitest run",
 		},
 		dependencies: {
-			"@wapi/framework": "workspace:*",
+			"@sitely/framework": "workspace:*",
 		},
 		devDependencies: {
 			typescript: "^5.7.3",
@@ -394,7 +394,7 @@ function runInit(domain: string): void {
 
 	writeFileSync(
 		join(rootDir, "index.ts"),
-		`import { Schema, defineSite } from "@wapi/framework";
+		`import { Schema, defineSite } from "@sitely/framework";
 
 export default defineSite({
 	name: "${domain}", // TODO: Give your site a friendly name
@@ -446,7 +446,7 @@ export default defineSite({
 
 	writeFileSync(
 		join(rootDir, "index.test.ts"),
-		`import { createFixtureLoader, describePageExtraction } from "@wapi/framework/testing";
+		`import { createFixtureLoader, describePageExtraction } from "@sitely/framework/testing";
 import { describe } from "vitest";
 import site from "./index.js";
 
@@ -478,7 +478,7 @@ describe("${domain}", () => {
 	console.log("\nNext steps:");
 	console.log(`  1. Edit sites/${domain}/index.ts to define your pages and extraction logic`);
 	console.log("  2. Run `pnpm install` to link the new workspace package");
-	console.log(`  3. Run \`pnpm wapi fetch-fixtures ${domain}\` to download fixture HTML`);
+	console.log(`  3. Run \`pnpm sitely fetch-fixtures ${domain}\` to download fixture HTML`);
 }
 
 // --- openapi command ---
@@ -543,10 +543,10 @@ switch (command) {
 		break;
 	default:
 		console.log(`Usage:
-  wapi init <domain>            Scaffold a new site package
-  wapi check [domain]           Validate site definitions
-  wapi fetch-fixtures [domain]  Fetch example URLs as HTML fixtures
-  wapi openapi [--output file]  Generate OpenAPI 3.1 spec`);
+  sitely init <domain>            Scaffold a new site package
+  sitely check [domain]           Validate site definitions
+  sitely fetch-fixtures [domain]  Fetch example URLs as HTML fixtures
+  sitely openapi [--output file]  Generate OpenAPI 3.1 spec`);
 		if (command) {
 			console.error(`\nUnknown command: ${command}`);
 			process.exit(1);

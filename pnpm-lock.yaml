@@ -44,10 +44,10 @@ importers:
 
   packages/framework:
     dependencies:
-      '@wapi/page':
+      '@sitely/page':
         specifier: workspace:*
         version: link:../page
-      '@wapi/schemas':
+      '@sitely/schemas':
         specifier: workspace:*
         version: link:../schemas
       robots-parser:
@@ -95,13 +95,13 @@ importers:
       '@hono/node-server':
         specifier: ^1.13.7
         version: 1.19.9(hono@4.11.9)
-      '@wapi/framework':
+      '@sitely/framework':
         specifier: workspace:*
         version: link:../framework
-      '@wapi/page':
+      '@sitely/page':
         specifier: workspace:*
         version: link:../page
-      '@wapi/schemas':
+      '@sitely/schemas':
         specifier: workspace:*
         version: link:../schemas
       drizzle-orm:
@@ -141,13 +141,13 @@ importers:
 
   sites/en.wikipedia.org:
     dependencies:
-      '@wapi/framework':
+      '@sitely/framework':
         specifier: workspace:*
         version: link:../../packages/framework
-      '@wapi/page':
+      '@sitely/page':
         specifier: workspace:*
         version: link:../../packages/page
-      '@wapi/schemas':
+      '@sitely/schemas':
         specifier: workspace:*
         version: link:../../packages/schemas
     devDependencies:
@@ -163,13 +163,13 @@ importers:
 
   sites/news.ycombinator.com:
     dependencies:
-      '@wapi/framework':
+      '@sitely/framework':
         specifier: workspace:*
         version: link:../../packages/framework
-      '@wapi/page':
+      '@sitely/page':
         specifier: workspace:*
         version: link:../../packages/page
-      '@wapi/schemas':
+      '@sitely/schemas':
         specifier: workspace:*
         version: link:../../packages/schemas
     devDependencies:

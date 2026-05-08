@@ -2,7 +2,7 @@ import {
 	createFixtureLoader,
 	createTestContext,
 	describePageExtraction,
-} from "@wapi/framework/testing";
+} from "@sitely/framework/testing";
 import { describe, expect, it } from "vitest";
 import site from "./index.js";
 

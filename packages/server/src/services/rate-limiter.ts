@@ -1,7 +1,7 @@
 import type { Redis } from "ioredis";
 
-const RATE_LIMIT_PREFIX = "wapi:ratelimit:";
-const SEMAPHORE_PREFIX = "wapi:sem:";
+const RATE_LIMIT_PREFIX = "sitely:ratelimit:";
+const SEMAPHORE_PREFIX = "sitely:sem:";
 
 /**
  * Per-site rate limiter backed by Redis.
@@ -77,7 +77,7 @@ export async function checkApiKeyRateLimit(
 	apiKeyId: string,
 	maxPerMinute = 100,
 ): Promise<{ allowed: boolean; remaining: number; resetMs: number }> {
-	const key = `wapi:apilimit:${apiKeyId}`;
+	const key = `sitely:apilimit:${apiKeyId}`;
 	const now = Date.now();
 	const windowMs = 60_000;
 

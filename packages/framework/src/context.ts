@@ -1,4 +1,4 @@
-import type { PageDriver, PageElement } from "@wapi/page";
+import type { PageDriver, PageElement } from "@sitely/page";
 import { extractJsonLd, filterJsonLdByType } from "./json-ld.js";
 import type { ExtractContext, MediaRef } from "./types.js";
 
