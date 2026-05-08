@@ -539,6 +539,7 @@ async function runMigrate(cmdArgs: string[]): Promise<void> {
 
 	let anyChanged = false;
 	let anyAlreadyV2 = false;
+	let anyIncomplete = false;
 	for (const target of targets) {
 		const result = migrateFile(target, apply);
 		if (!result.changed) {
@@ -547,10 +548,19 @@ async function runMigrate(cmdArgs: string[]): Promise<void> {
 			continue;
 		}
 		anyChanged = true;
-		console.log(green(`${apply ? "✓ migrated" : "Δ would migrate"} ${result.filePath}`));
+		const headerColor = result.incomplete ? red : green;
+		const headerLabel = result.incomplete
+			? "✗ incomplete migration"
+			: apply
+				? "✓ migrated"
+				: "Δ would migrate";
+		console.log(headerColor(`${headerLabel} ${result.filePath}`));
 		for (const note of result.notes) {
-			console.log(dim(`  - ${note}`));
+			const isWarning = note.startsWith("WARN") || note.startsWith("WARNING");
+			const renderer = isWarning ? red : dim;
+			console.log(renderer(`  - ${note}`));
 		}
+		if (result.incomplete) anyIncomplete = true;
 		if (!apply) {
 			console.log(renderDiff(result.original, result.migrated, result.filePath));
 		}
@@ -561,6 +571,14 @@ async function runMigrate(cmdArgs: string[]): Promise<void> {
 	}
 	if (!anyChanged && anyAlreadyV2) {
 		console.log(green("All targets already on v2."));
+	}
+	if (anyIncomplete) {
+		console.error(
+			red(
+				"\nOne or more files could not be fully migrated. The v2 marker was withheld; review the warnings above and re-run after fixing.",
+			),
+		);
+		process.exit(1);
 	}
 }
 

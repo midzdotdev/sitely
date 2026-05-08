@@ -61,6 +61,17 @@ for (const { name, path } of siteDirs) {
 					).toBeDefined();
 				}
 			});
+
+			it("does not declare schemas no resource references (no dead schemas)", () => {
+				const referenced = new Set(
+					Object.values(site.resources).map((r) => r.schema),
+				);
+				const dead = Object.keys(site.schemas).filter((name) => !referenced.has(name));
+				expect(
+					dead,
+					`site.schemas contains entries not referenced by any resource: ${dead.join(", ")}. Remove them or wire them to a resource.`,
+				).toEqual([]);
+			});
 		});
 
 		// --- Resources ---
