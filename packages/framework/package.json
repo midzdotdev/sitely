@@ -26,6 +26,7 @@
 		"@sitely/schemas": "workspace:*",
 		"ajv": "^8.17.1",
 		"fast-json-stable-stringify": "^2.1.0",
+		"jest-diff": "^29.7.0",
 		"robots-parser": "^3.0.1",
 		"zod": "^4.3.6"
 	},

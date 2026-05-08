@@ -56,6 +56,16 @@ export type { StandardSchemaV1 } from "./standard-schema.js";
 export { createTestContext, matchPagePattern, matchPattern, testExtract } from "./test-harness.js";
 export type { TestHarnessOptions } from "./test-harness.js";
 
+// 8 must-pass CI checks (atlas spec §7/§9) — `sitely test` invokes this.
+export { testPackage } from "./test-pkg/index.js";
+export type {
+	CheckFailure,
+	CheckName,
+	CheckResult,
+	TestPackageOptions,
+	TestPackageResult,
+} from "./test-pkg/index.js";
+
 // Vitest-dependent test helpers are exported from "@sitely/framework/testing"
 // to avoid pulling vitest into runtime/CLI imports.
 // See ./testing.ts for: createFixtureLoader, loadFixtureManifest, describePageExtraction
