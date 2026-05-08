@@ -141,6 +141,10 @@ async function loadSiteDefinition(packageRoot: string): Promise<SiteDefinition |
 /** Re-export public types for consumers. */
 export type { Manifest } from "./manifest-types.js";
 export type { ValidationError } from "./validate.js";
+export { validatePackage } from "./validate-package.js";
+export type { ValidatePackageOptions, ValidatePackageResult } from "./validate-package.js";
+export { snapshotUrl, urlToFixtureName } from "./snapshot.js";
+export type { SnapshotUrlOptions, SnapshotResult, SnapshotMeta } from "./snapshot.js";
 export { resolveCapabilities, DEFAULT_CAPABILITIES } from "./capabilities.js";
 export { parseTTL, validateTTL } from "./ttl.js";
 export { stableSerialize } from "./serialize.js";
