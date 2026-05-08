@@ -25,6 +25,17 @@ export { generateOpenApiSpec } from "./openapi.js";
 // Origin / locale derivation
 export { getActiveOrigins, getAllHostnames, getPrimaryHostname } from "./origins.js";
 
+// Build / validate / capabilities — atlas spec §0/§5/§7/§8 primitives
+export {
+	buildPackage,
+	DEFAULT_CAPABILITIES,
+	parseTTL,
+	resolveCapabilities,
+	stableSerialize,
+	validateTTL,
+} from "./build/index.js";
+export type { BuildPackageOptions, BuildPackageResult, Manifest, ValidationError } from "./build/index.js";
+
 // Standard Schema types
 export type { StandardSchemaV1 } from "./standard-schema.js";
 
