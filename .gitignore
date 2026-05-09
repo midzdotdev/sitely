@@ -2,6 +2,7 @@ node_modules
 dist
 .turbo
 *.tsbuildinfo
+.claude/
 
 # Site packages MUST commit their manifest + emitted JSON Schemas —
 # atlas §0 keystone primitive. The `manifest-integrity` CI check
