@@ -120,7 +120,14 @@ export function buildManifest(
  */
 function gitLastCommitShaForPackage(cwd: string): string {
 	try {
-		const out = execSync("git log -1 --format=%h -- .", { cwd, encoding: "utf-8" }).trim();
+		// Exclude `dist/` so manifest-only commits don't advance the recorded SHA —
+		// otherwise every rebuild-and-commit cycle would invalidate the next
+		// integrity check. The recorded commit is the last one that changed
+		// authored sources (index.ts, package.json, fixtures, etc.).
+		const out = execSync("git log -1 --format=%h -- . ':!dist'", {
+			cwd,
+			encoding: "utf-8",
+		}).trim();
 		return out || "unknown";
 	} catch {
 		return "unknown";
@@ -136,7 +143,10 @@ function gitLastCommitShaForPackage(cwd: string): string {
  */
 function gitLastCommitISOForPackage(cwd: string): string {
 	try {
-		const out = execSync("git log -1 --format=%cI -- .", { cwd, encoding: "utf-8" }).trim();
+		const out = execSync("git log -1 --format=%cI -- . ':!dist'", {
+			cwd,
+			encoding: "utf-8",
+		}).trim();
 		return out || "1970-01-01T00:00:00+00:00";
 	} catch {
 		return "1970-01-01T00:00:00+00:00";
