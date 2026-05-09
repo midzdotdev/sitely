@@ -98,8 +98,8 @@ export function buildManifest(
 				}
 			: {}),
 		build: {
-			commit: gitHeadShortSha(ctx.packageRoot),
-			builtAt: gitHeadCommitterISO(ctx.packageRoot),
+			commit: gitLastCommitShaForPackage(ctx.packageRoot),
+			builtAt: gitLastCommitISOForPackage(ctx.packageRoot),
 			tool: ctx.tool,
 		},
 	};
@@ -108,31 +108,36 @@ export function buildManifest(
 }
 
 /**
- * Get the short SHA of HEAD. Used as a stable, deterministic identifier for
- * the `build.commit` manifest field.
+ * Get the short SHA of the last commit that touched this package's directory.
  *
- * Falls back to `"unknown"` outside a git checkout — the manifest is still
- * structurally valid; only the determinism self-test would notice.
+ * Uses `git log -1 --format=%h -- .` so the manifest's `build.commit` only
+ * advances when the *package itself* changes — not on every unrelated commit
+ * to the monorepo. This keeps `manifest-integrity` (atlas §9 #7) stable
+ * across docs commits, sibling-package edits, etc.
+ *
+ * Falls back to `"unknown"` outside a git checkout (or when no commit has
+ * touched the package yet) — the manifest is still structurally valid.
  */
-function gitHeadShortSha(cwd: string): string {
+function gitLastCommitShaForPackage(cwd: string): string {
 	try {
-		return execSync("git rev-parse --short HEAD", { cwd, encoding: "utf-8" }).trim();
+		const out = execSync("git log -1 --format=%h -- .", { cwd, encoding: "utf-8" }).trim();
+		return out || "unknown";
 	} catch {
 		return "unknown";
 	}
 }
 
 /**
- * Get the committer ISO8601 timestamp of HEAD. This is what populates
- * `build.builtAt` — NOT `Date.now()`, because we need byte-identical
- * regeneration (atlas §0 "manifest integrity" check).
+ * Get the committer ISO8601 timestamp of the last commit that touched this
+ * package's directory. Pairs with {@link gitLastCommitShaForPackage}.
  *
- * Per the safety-net pattern from #0c0f10a0: every manifest field that
- * could otherwise drift across builds is pinned to a deterministic source.
+ * Determinism contract: every manifest field that could otherwise drift
+ * across builds is pinned to a deterministic source — never `Date.now()`.
  */
-function gitHeadCommitterISO(cwd: string): string {
+function gitLastCommitISOForPackage(cwd: string): string {
 	try {
-		return execSync("git show -s --format=%cI HEAD", { cwd, encoding: "utf-8" }).trim();
+		const out = execSync("git log -1 --format=%cI -- .", { cwd, encoding: "utf-8" }).trim();
+		return out || "1970-01-01T00:00:00+00:00";
 	} catch {
 		return "1970-01-01T00:00:00+00:00";
 	}

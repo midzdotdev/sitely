@@ -2,6 +2,15 @@ node_modules
 dist
 .turbo
 *.tsbuildinfo
+
+# Site packages MUST commit their build outputs — atlas §0 keystone
+# manifest contract. The `manifest-integrity` CI check (atlas §9 #7)
+# diffs the freshly-built manifest against the committed one to catch
+# packages shipped with stale manifests.
+!packages/site-*/dist/
+!packages/site-*/dist/manifest.json
+!packages/site-*/dist/schemas/
+!packages/site-*/dist/schemas/*.json
 .env
 .env.*
 !.env.example
