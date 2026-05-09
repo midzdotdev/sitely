@@ -1,8 +1,0 @@
-{
-	"/wiki/:title": [
-		{
-			"fixture": "wiki-typescript.html",
-			"url": "https://en.wikipedia.org/wiki/TypeScript"
-		}
-	]
-}

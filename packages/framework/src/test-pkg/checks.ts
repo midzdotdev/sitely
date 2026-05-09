@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { Ajv } from "ajv";
+import { Ajv2020 } from "ajv/dist/2020.js";
 import stableStringify from "fast-json-stable-stringify";
 import { diff as jestDiff } from "jest-diff";
 import { buildPackage } from "../build/index.js";
@@ -222,7 +222,7 @@ export async function runSchemaEmissionRoundtrip(ctx: CheckContext): Promise<Che
 		};
 	}
 
-	const ajv = new Ajv({ strict: false, allErrors: true });
+	const ajv = new Ajv2020({ strict: false, allErrors: true });
 	const validators = new Map<string, ReturnType<typeof ajv.compile>>();
 
 	for (const fixture of ctx.fixtures) {

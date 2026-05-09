@@ -2,7 +2,11 @@ import { defineSite } from "@sitely/framework";
 import { Article } from "@sitely/schemas";
 
 export default defineSite({
-	site: { id: "wikipedia", displayName: "Wikipedia (English)" },
+	site: {
+		id: "wikipedia",
+		displayName: "Wikipedia",
+		homepage: "https://www.wikipedia.org/",
+	},
 
 	origins: [{ hostname: "{locale}.wikipedia.org", templated: true }],
 
@@ -24,6 +28,22 @@ export default defineSite({
 	rateLimit: {
 		maxConcurrent: 3,
 		requestsPerSecond: 1,
+	},
+
+	// Explicit capability declarations matching atlas §8 defaults — populated
+	// in the manifest so consumers don't have to derive from the omitted-fields
+	// fallback.
+	capabilities: {
+		network: { egress: "site-only" },
+		filesystem: "none",
+		process: "none",
+		timers: { maxWallMs: 30_000 },
+		memory: { maxMb: 256 },
+	},
+
+	framework: {
+		minVersion: "0.1.0",
+		maxVersion: "1.0.0",
 	},
 
 	schemas: { Article },
@@ -48,7 +68,8 @@ export default defineSite({
 			provides: ["article"],
 			examples: [
 				"https://en.wikipedia.org/wiki/TypeScript",
-				"https://en.wikipedia.org/wiki/Node.js",
+				"https://de.wikipedia.org/wiki/TypeScript",
+				"https://fr.wikipedia.org/wiki/TypeScript",
 			],
 
 			validate: (ctx) => {

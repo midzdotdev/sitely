@@ -1,0 +1,9 @@
+{
+	"contentLength": 467,
+	"fetchedAt": "2026-05-08T00:00:00.000Z",
+	"headers": {
+		"content-type": "text/html; charset=utf-8"
+	},
+	"status": 200,
+	"url": "https://en.wikipedia.org/wiki/NonexistentArticle"
+}

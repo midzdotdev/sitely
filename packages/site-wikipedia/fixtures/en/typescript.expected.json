@@ -1,0 +1,22 @@
+{
+	"article": {
+		"@type": "Article",
+		"canonical": "https://en.wikipedia.org/wiki/TypeScript",
+		"categories": [
+			"Programming languages",
+			"Microsoft software",
+			"TypeScript"
+		],
+		"dateModified": "2025-01-15",
+		"headline": "TypeScript",
+		"image": {
+			"type": "image",
+			"url": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4c/Typescript_logo_2020.svg/220px-Typescript_logo_2020.svg.png"
+		},
+		"lastModified": "This page was last edited on 15 January 2025, at 10:30 (UTC).",
+		"name": "TypeScript",
+		"summary": "TypeScript is a free and open-source high-level programming language developed by Microsoft that adds static typing with optional type annotations to JavaScript.",
+		"title": "TypeScript",
+		"url": "https://en.wikipedia.org/wiki/TypeScript"
+	}
+}

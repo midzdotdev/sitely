@@ -1,0 +1,4 @@
+{
+	"reason": "missing .mw-parser-output container — Wikipedia returns the noarticletext stub for nonexistent articles; validate() rejects the page",
+	"validateExpected": false
+}
