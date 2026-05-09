@@ -16,9 +16,12 @@ export interface BuildContext {
  *
  * Determinism contract: this function MUST produce byte-identical output
  * (after stable serialization) when given the same SiteDefinition and the
- * same git HEAD. Sources of nondeterminism are deliberately excluded:
- * - `build.builtAt` uses the git committer ISO timestamp of HEAD, not Date.now().
- * - `build.commit` is the HEAD short sha.
+ * same `git log -1 -- . ':!dist'` result for the package directory. Sources
+ * of nondeterminism are deliberately excluded:
+ * - `build.builtAt` uses the git committer ISO timestamp of the last commit
+ *   that touched the package's authored sources (excluding dist/), not
+ *   `Date.now()` and not global HEAD.
+ * - `build.commit` is the short sha of that same commit.
  * - `build.tool` is a static string passed in by the caller.
  * - All record fields are emitted directly; sorting happens at serialization time.
  */

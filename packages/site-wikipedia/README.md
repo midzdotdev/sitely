@@ -27,23 +27,24 @@ packages/site-wikipedia/
 │   │   └── missing-article.meta.json   sidecar
 │   ├── de/typescript.{html,expected.json,meta.json}   author-synthetic — see TODO in HTML head
 │   └── fr/typescript.{html,expected.json,meta.json}   author-synthetic — see TODO in HTML head
-└── dist/
-    ├── manifest.json                 emitted by `sitely build` — INTENTIONALLY COMMITTED
-    ├── schemas/Article.json          emitted JSON Schema for the Article validator
-    └── *.js                          compiled site definition (also committed for consumers)
+└── dist/                             ← only manifest.json + schemas/ are tracked; *.js is gitignored
+    ├── manifest.json                 emitted by `sitely build` — INTENTIONALLY COMMITTED (atlas §0)
+    └── schemas/Article.json          emitted JSON Schema for the Article validator
 ```
 
-## Why `dist/` is committed (atypical)
+## Why `dist/manifest.json` is committed (atypical)
 
-Most TypeScript packages gitignore `dist/`. This one doesn't, because **the `manifest-integrity` CI check requires it**.
+Most TypeScript packages gitignore `dist/` entirely. This one ships the keystone artifacts — `dist/manifest.json` and `dist/schemas/*.json` — under version control, while compiled JS (`dist/*.js`, `dist/*.d.ts`, source maps) stays gitignored. The repo's [`.gitignore`](../../.gitignore) narrows the exception to exactly those two paths.
 
-Atlas spec §0 makes the build-time manifest the keystone primitive — the static artifact that downstream consumers (directory rendering, runner cross-check, capability sandbox) read at install time without executing the package. The integrity check is:
+Why: **the `manifest-integrity` CI check requires the manifest to be tracked**. Atlas spec §0 makes the build-time manifest the keystone primitive — the static artifact that downstream consumers (directory rendering, runner cross-check, capability sandbox) read at install time without executing the package. The integrity check is:
 
 > Re-run `sitely build`. Diff the freshly-built manifest against the committed `dist/manifest.json`. If they differ, the package was published with a stale manifest — fail the build.
 
-For that diff to mean anything, the previous manifest has to be in version control. So `packages/site-wikipedia/dist/manifest.json` and `dist/schemas/*.json` are committed deliberately. The compiled JS in `dist/` rides along because the framework also loads the site def from `dist/index.js` when available.
+For that diff to mean anything, the previous manifest has to be in version control. So `packages/site-wikipedia/dist/manifest.json` and `dist/schemas/*.json` are committed deliberately.
 
-Determinism contract: regenerating the manifest against the same git HEAD must produce byte-identical output. Verified end-to-end:
+Compiled JS (`dist/*.js`) is NOT shipped — installers run `tsc` themselves (`pnpm exec tsc` or via the package's `pnpm build` script, which chains `tsc && sitely build`). The framework's site-def loader will pick up `dist/index.js` when it exists locally, but it isn't part of the package's published surface.
+
+Determinism contract: regenerating the manifest against the same authored sources must produce byte-identical output. Verified end-to-end:
 
 ```bash
 cp dist/manifest.json /tmp/m1.json

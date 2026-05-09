@@ -15,7 +15,7 @@ The decoupling means you can swap Zod for Valibot or ArkType later without re-au
 
 ## Schemas exported
 
-Every schema is a Zod `ZodObject` with `looseObject` semantics (extra keys allowed) and matches a schema.org type. The `schemaOrgType` is recorded in `schemaOrgMetadata` and emitted into the manifest.
+Every schema is a Zod `ZodObject` with `looseObject` semantics (extra keys allowed) and corresponds to a schema.org type (or `Thing` itself, the base type). The `schemaOrgType` is recorded in `schemaOrgMetadata` and emitted into the manifest.
 
 | Export             | schema.org type     | Typical use                                                         |
 |--------------------|---------------------|---------------------------------------------------------------------|

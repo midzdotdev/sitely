@@ -316,9 +316,11 @@ sitely openapi [--output file]                  ← generate OpenAPI 3.1 spec
 | Command | Primitive | Pass | Fail |
 |---|---|---|---|
 | `sitely build` | `buildPackage` | exits 0, writes `dist/manifest.json` + `dist/schemas/*.json` | exits 1, prints `[<kind>] <message>` per validation error, no files written |
-| `sitely test` | `testPackage` | exits 0, prints `✓ <check> (N items)` per check | exits 1, prints `✗ <check>` + per-failure detail (jest-diff for fixture/determinism check failures) |
+| `sitely test` | `testPackage` | exits 0, prints `✓ <check> (N items)` per check | exits 1 if **any** of the 8 checks reports a failure (one bad fixture is enough); per-failure detail printed under the failed `✗ <check>` line, with jest-diff for fixture/determinism failures |
 | `sitely check` | `validatePackage` | exits 0 | exits 1, prints validation errors |
 | `sitely snapshot` | `snapshotUrl` | exits 0, writes HTML + meta.json | exits 1 with `fetch failed` message |
+
+> Note on test counts: `pnpm test` from the repo root no longer reports per-fixture vitest assertions for site packages — they migrated from a vitest-based `index.test.ts` to `sitely test` (the 8 must-pass checks). This is an *increase* in coverage (8 checks × N fixtures vs. a handful of asserts) but shows up as a smaller vitest count. The full check verdict is in the `sitely test` block of the turbo output.
 
 ### `sitely test` ↔ vitest
 
@@ -429,20 +431,27 @@ The keystone primitive (atlas §0). Static, build-time JSON document emitted alo
 | `capabilities` | `resolveCapabilities(site)` — declared values, atlas §8 defaults applied for missing fields |
 | `framework` | Site def's `framework` field (`{}` when undeclared; runner applies caret-compat fallback) |
 | `family?` | Site def's `family` field (omitted when undeclared) |
-| `build.commit` | `git rev-parse --short HEAD` |
-| `build.builtAt` | `git show -s --format=%cI HEAD` (committer ISO of HEAD — NOT `Date.now()`) |
+| `build.commit` | `git log -1 --format=%h -- . ':!dist'` (last commit that touched the package's authored sources, excluding `dist/` artifacts) |
+| `build.builtAt` | `git log -1 --format=%cI -- . ':!dist'` (committer ISO of that commit — NOT `Date.now()`, and NOT global `HEAD`) |
 | `build.tool` | CLI version string (e.g. `"sitely-cli@0.1.0"`) |
 
 ### Why determinism matters
 
 The `manifest-integrity` check (atlas §9 #7) regenerates the manifest and diffs it against the checked-in `dist/manifest.json`. If they differ, the package was published with a stale manifest. For that to be a meaningful test, regeneration must be byte-identical. So the build:
 
-- Reads timestamps from git (committer ISO of HEAD), never `Date.now()`.
+- Reads `build.commit` and `build.builtAt` from `git log -1 -- . ':!dist'` (last commit that touched the package's authored sources), not `git rev-parse HEAD`. Never `Date.now()`.
 - Sorts every object key via `fast-json-stable-stringify` before serializing.
 - Serializes JSON Schemas via Zod 4's `z.toJSONSchema()` (deterministic).
 - Forbids `process.env`-derived fields entirely.
 
-A self-test invariant in [`src/build/build.test.ts`](src/build/build.test.ts) regenerates the manifest twice and asserts byte-identity — the determinism contract is structurally protected against regression.
+#### Why the build provenance is package-scoped + dist-excluded
+
+The `git log` source for `build.commit` / `build.builtAt` is intentionally narrowed in two ways:
+
+1. **Package-scoped (`-- .`):** advances only when the *package itself* changes. A commit elsewhere in the monorepo (docs touch-up, sibling-package edit, root config change) doesn't bump the manifest's recorded SHA, so it doesn't invalidate `manifest-integrity` on the next CI run.
+2. **Dist-excluded (`':!dist'`):** the commit that ships a rebuilt manifest is itself a commit that touches the package, so a naive package-scoped `git log` would record the manifest-only commit's SHA — which the *next* rebuild wouldn't match (chicken-and-egg). Excluding `dist/` means manifest-only commits don't advance the recorded SHA. The integrity-check cycle closes.
+
+Net: `manifest-integrity` catches the case it's actually meant to catch — "the package was edited but the manifest wasn't regenerated" — and ignores commits that don't change authored sources. The test invariant in [`src/build/build.test.ts`](src/build/build.test.ts) protects byte-identity within a single build pair; this scoping protects byte-identity across normal commit cadences.
 
 ## Error message contract
 
