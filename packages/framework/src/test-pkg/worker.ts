@@ -8,31 +8,32 @@ import type { SiteDefinition } from "../types.js";
  * Worker bootstrap — runs a single fixture's `validate` + `extract` under
  * capability constraints declared in the manifest.
  *
- * Design (atlas spec §8 — "the test harness IS the sandbox"):
+ * What the sandbox enforces today (atlas spec §8 — "the test harness IS the sandbox"):
  * - `globalThis.fetch` is overridden with an allowlist driven by
  *   `capabilities.network.egress` + the site's hostnames.
- * - Filesystem / process / vm / net modules are denied via a require hook.
- *   Because we run under ESM, we install a custom `require` and also throw
- *   from any `import()` of denied modules at parse time isn't possible —
- *   so we rely on capability-violation detection at the call site.
- *
- *   In practice the deny-list is enforced by:
- *     1. Pre-loading our module patches BEFORE the site's module loads.
- *     2. Replacing exports of denied modules with throwing proxies.
- *     3. The site's `extract` function uses `ctx.fetch` (intercepted) for
- *        any network access, never raw fetch/http modules.
- *
- * - `AbortSignal.timeout(maxWallMs)` wraps the extract call so a runaway
- *   extractor fails as a capability-violation rather than hanging the harness.
+ * - Memory cap via `worker_threads.Worker.resourceLimits.maxOldGenerationSizeMb`
+ *   (set on the parent side from `capabilities.memory.maxMb`).
+ * - Wall-clock deadline via in-worker `setTimeout(maxWallMs)` + outer parent
+ *   watchdog. Runaway extractors fail as a capability violation rather than
+ *   hanging the harness.
  *
  * Capability violations are posted back to the parent as
  * `{kind: "capability-violation", capability, attempted}` and turned into
  * test failures.
  *
+ * Future work (NOT enforced today — capabilities documented in the manifest
+ * but the worker has no enforcement code for these):
+ * - Module deny-list for `node:fs`, `node:fs/promises`, `node:child_process`,
+ *   `node:vm`, `node:net`, `node:dgram`, `node:tls` gated by `capabilities.filesystem`
+ *   / `capabilities.process`. A site that calls `fs.readFile()` directly will
+ *   succeed silently rather than fail as a capability violation. Wire this
+ *   when the first community submission needs filesystem-allowed extraction.
+ *
  * Honest caveat (atlas §8): worker_threads is process-internal. A determined
  * attacker can escape via native addons / runtime tricks. The harness
  * documents this — capability enforcement here catches accidents and lazy
- * mistakes, not adversaries.
+ * mistakes, not adversaries. Real adversary defense is the deferred
+ * managed-service trust pass.
  */
 
 interface WorkerInput {
