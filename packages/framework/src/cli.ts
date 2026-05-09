@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { writeFile } from "node:fs/promises";
-import { basename, join, resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
 	buildPackage,
@@ -14,6 +14,7 @@ import type { SiteDefinition } from "./types.js";
 
 const CWD = process.cwd();
 const SITES_DIR = resolve(CWD, "sites");
+const PACKAGES_DIR = resolve(CWD, "packages");
 
 // ── ANSI helpers ──────────────────────────────────────────────────
 
@@ -45,11 +46,28 @@ function parsePackageArg(args: string[]): { all: boolean; packageRoot: string | 
 }
 
 function discoverSiteDirs(): { name: string; path: string }[] {
-	if (!existsSync(SITES_DIR)) return [];
-	return readdirSync(SITES_DIR, { withFileTypes: true })
-		.filter((d) => d.isDirectory() && !d.name.startsWith("_") && d.name !== "node_modules")
-		.map((d) => ({ name: d.name, path: resolve(SITES_DIR, d.name) }))
-		.filter(({ path }) => existsSync(resolve(path, "index.ts")));
+	const found: { name: string; path: string }[] = [];
+
+	// Legacy: sites/<domain>/ — kept for non-canary sites that haven't
+	// migrated to the atlas §10 packages/site-<id>/ layout yet.
+	if (existsSync(SITES_DIR)) {
+		for (const d of readdirSync(SITES_DIR, { withFileTypes: true })) {
+			if (!d.isDirectory() || d.name.startsWith("_") || d.name === "node_modules") continue;
+			const path = resolve(SITES_DIR, d.name);
+			if (existsSync(resolve(path, "index.ts"))) found.push({ name: d.name, path });
+		}
+	}
+
+	// Canonical: packages/site-<id>/ per atlas §10.
+	if (existsSync(PACKAGES_DIR)) {
+		for (const d of readdirSync(PACKAGES_DIR, { withFileTypes: true })) {
+			if (!d.isDirectory() || !d.name.startsWith("site-")) continue;
+			const path = resolve(PACKAGES_DIR, d.name);
+			if (existsSync(resolve(path, "index.ts"))) found.push({ name: d.name, path });
+		}
+	}
+
+	return found;
 }
 
 async function packagesToOperateOn(args: string[]): Promise<string[]> {
@@ -426,6 +444,3 @@ switch (command) {
 }
 
 if (exitCode !== 0) process.exit(exitCode);
-
-// `basename` import is retained for potential future use; reference once to silence the linter.
-void basename;

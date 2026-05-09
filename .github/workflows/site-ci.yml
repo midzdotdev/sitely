@@ -8,6 +8,10 @@ name: site-ci
 #       ci:
 #         uses: nicholasgriffintn/wapi/.github/workflows/site-ci.yml@v1
 #
+# TODO: when the GitHub repo is renamed from `wapi` to its final published
+# name, update the example `uses:` path above. The workflow itself is
+# repo-path agnostic — only the docstring needs the change.
+#
 # Runs the contracted v0 CI: `sitely build && sitely test`. Every check in
 # atlas spec §9 (fixture extraction, schema conformance, determinism,
 # schema-emission round-trip, locale matrix, error-path coverage, manifest

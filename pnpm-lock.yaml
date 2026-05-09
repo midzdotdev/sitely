@@ -151,17 +151,17 @@ importers:
         specifier: ^3.0.4
         version: 3.2.4(@types/node@25.2.2)(tsx@4.21.0)(yaml@2.8.2)
 
-  sites/en.wikipedia.org:
+  packages/site-wikipedia:
     dependencies:
       '@sitely/framework':
         specifier: workspace:*
-        version: link:../../packages/framework
+        version: link:../framework
       '@sitely/page':
         specifier: workspace:*
-        version: link:../../packages/page
+        version: link:../page
       '@sitely/schemas':
         specifier: workspace:*
-        version: link:../../packages/schemas
+        version: link:../schemas
     devDependencies:
       '@types/node':
         specifier: ^25.2.2
