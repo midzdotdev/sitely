@@ -1,7 +1,7 @@
 {
 	"build": {
-		"builtAt": "2026-05-09T09:37:51+01:00",
-		"commit": "8ad2a8d",
+		"builtAt": "2026-05-09T09:47:39+01:00",
+		"commit": "5da3a50",
 		"tool": "sitely-cli@0.1.0"
 	},
 	"capabilities": {
