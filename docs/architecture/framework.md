@@ -159,7 +159,58 @@ Optional site-level smoke test that runs before per-page `validate` / `extract`.
 })
 ```
 
-See [The framework error hierarchy](#the-framework-error-hierarchy) below.
+The author's `checkResponse` runs *after* the framework's [built-in CAPTCHA detection](#built-in-captcha-detection); the well-known anti-bot services are caught for you. See [The framework error hierarchy](#the-framework-error-hierarchy) below.
+
+### Built-in CAPTCHA detection
+
+A small auto-detection step runs *before* the author's `checkResponse`. It inspects the response's headers, cookies, and body for known signatures of common anti-bot services. On a match, the framework throws `CaptchaError({ service })` and the author's `checkResponse` doesn't run.
+
+The detected services and the signals each one matches on:
+
+| Service | Header signals | Cookie signals | Body signals |
+|---|---|---|---|
+| `cloudflare` | `cf-mitigated: challenge`, `server: cloudflare` + `cf-ray` | `__cf_bm`, `cf_clearance` | `<title>Just a moment...`, `/cdn-cgi/challenge-platform/` |
+| `datadome` | `x-datadome-cid`, `x-dd-b` | `datadome` | `<title>You have been blocked`, `dd_cookie_test_` |
+| `perimeterx` | `x-px-block`, `x-px-action` | `_px3` | `<script src="//client.perimeterx.net/` |
+| `incapsula` | `x-iinfo`, `x-cdn: Incapsula` | `visid_incap_*`, `incap_ses_*` | `_Incapsula_Resource` |
+| `akamai` | `x-akamai-edgescape`, akamai-prefixed mgr headers | `_abck`, `bm_sz` | (header-detected) |
+| `recaptcha` *(opt-in)* | — | — | `class="g-recaptcha"`, `https://www.google.com/recaptcha/` |
+| `hcaptcha` *(opt-in)* | — | — | `class="h-captcha"`, `https://js.hcaptcha.com/` |
+
+`recaptcha` and `hcaptcha` are off by default because they appear on legitimate forms too (login, signup, comment boxes). Opt in per site when the site is known to gate behind one of them.
+
+#### Configuration
+
+```ts
+// Default: all five anti-bot services on; the two interactive captchas off.
+defineSite({ site, origins, ... })   // (no `detectCaptcha` field → defaults apply)
+
+// Opt in/out per service:
+defineSite({
+    site,
+    origins,
+    detectCaptcha: {
+        cloudflare: true,
+        datadome: true,
+        recaptcha: true,    // opt in
+    },
+})
+
+// Disable entirely (author handles everything in checkResponse):
+defineSite({ site, origins, detectCaptcha: false })
+```
+
+#### Overriding a match
+
+The author's `checkResponse` runs *only when detection didn't throw*. If you want to suppress a specific match — for example, the site shows a Cloudflare interstitial to all visitors and a real article still loads — set `detectCaptcha: { cloudflare: false }` and write the suppression logic in `checkResponse` yourself.
+
+#### What it doesn't catch
+
+- **Site-specific anti-bot pages** with no known service marker — still need a hand-written `checkResponse` rule.
+- **Soft blocks** that return a `200` with a stub body — schema validation usually catches those.
+- **IP-level rate limits** served by CDNs without a captcha challenge — those surface as HTTP `429` and the framework's `RateLimitedError` mapping.
+
+Detection patterns live in `@sitely/framework` and update via patch releases; consumers get fixes for free on `pnpm update`. The patterns aren't part of any site package's manifest, so changes don't trigger [`semver-discipline`](/guide/testing#semver-discipline).
 
 ### `.use(segment)`
 
@@ -287,7 +338,12 @@ export class FrameworkError extends Error {}
 export class ResponseError    extends FrameworkError {}
 export class RateLimitedError extends ResponseError { constructor(opts?: { retryAfter?: number }); }
 export class BlockedError     extends ResponseError { constructor(opts?: { retryAfter?: number }); }
-export class CaptchaError     extends BlockedError {}
+export class CaptchaError     extends BlockedError {
+    constructor(opts?: {
+        service?: "cloudflare" | "datadome" | "perimeterx" | "incapsula" | "akamai" | "recaptcha" | "hcaptcha";
+        retryAfter?: number;
+    });
+}
 export class TransientError   extends ResponseError { constructor(opts?: { retryAfter?: number }); }
 export class PermanentError   extends ResponseError { constructor(opts: { reason: string }); }
 export class BadResponseError extends ResponseError { constructor(opts: { reason: string }); }

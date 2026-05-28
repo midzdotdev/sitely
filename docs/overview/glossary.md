@@ -306,7 +306,7 @@ The fixture itself doesn't need a separate `examples` declaration — the URL is
 |---|---|---|---|
 | `RateLimitedError({ retryAfter? })` | Site is throttling. | `rate_limited` | Yes, after `retryAfter` (default 60s). Triggers backoff. |
 | `BlockedError({ retryAfter? })` | Site is refusing access (anti-bot, IP block). | `blocked` | No by default; if `retryAfter` is set, after that. |
-| `CaptchaError({ retryAfter? })` (extends `BlockedError`) | Specifically a CAPTCHA. Separate so future CAPTCHA-solving infra can hook in. | `blocked` | No. |
+| `CaptchaError({ service?, retryAfter? })` (extends `BlockedError`) | Specifically a CAPTCHA. Auto-thrown when the framework's [built-in detection](/architecture/framework#built-in-captcha-detection) matches Cloudflare, Datadome, PerimeterX, Incapsula, or Akamai — authors don't need to detect those manually. `service` carries the matched service name. | `blocked` | No. |
 | `TransientError({ retryAfter? })` | Temporary failure — network reset, timeout, 5xx. Framework auto-creates from connection-level failures; authors can throw for content-level transient signals. | `error` | Yes, exponential backoff. |
 | `PermanentError({ reason })` | Won't heal — content removed, page deleted, structurally wrong. | `error` | No. |
 | `BadResponseError({ reason })` | Generic "this response is not right but I'm not sure why". | `error` | No. |

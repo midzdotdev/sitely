@@ -145,6 +145,44 @@ A long-running probe that empirically reverses out a target site's rate-limit po
 
 A standalone sub-project. The framework just needs to keep its `rateLimit` surface stable so the tool's output can be pasted in directly.
 
+## CAPTCHA solving as an extension point
+
+The framework's [built-in CAPTCHA detection](/architecture/framework#built-in-captcha-detection) tells consumers *when* a request hit Cloudflare, Datadome, or a reCAPTCHA widget. Telling them and *doing something about it* are different problems. The current design surfaces detection as `status: "blocked"`; a future direction is a typed hook for plugging in solvers.
+
+**The planned shape:**
+
+```ts
+defineSite({
+    ...,
+    solveCaptcha: async (challenge) => {
+        // challenge.service  = "cloudflare" | "datadome" | "recaptcha" | "hcaptcha" | …
+        // challenge.url      — the URL that hit the captcha
+        // challenge.sitekey  — extractable for reCAPTCHA / hCaptcha
+        // challenge.response — the response snapshot the detector matched on
+        //
+        // Return one of:
+        //   { kind: "token",   token: "..." }       // for interactive captchas
+        //   { kind: "cookies", cookies: [...] }     // for interstitial bypasses
+        //   null                                     // give up; framework throws CaptchaError as today
+    },
+})
+```
+
+When `solveCaptcha` is set, the framework calls it on a detection hit. On success it re-runs the page request with the solution attached (token or cookies). On failure or `null`, behaviour matches today: throw `CaptchaError`, surface as `status: "blocked"`.
+
+**Why this is in `/future/` rather than the current design:**
+
+- The framework should stay light. Solver infrastructure (API keys, retry budgets, billing) is operator-side or author-side, not framework-side.
+- Solver service lifetimes are short — services come and go. Standardising too early annoys self-hosters who already have a preferred service.
+- The right shape needs feedback from real authors trying to integrate.
+
+**Two distinct problems the realistic options today solve:**
+
+- **Interactive captchas** (reCAPTCHA, hCaptcha, Turnstile) — solvable via commercial APIs (2Captcha, CapSolver, Anti-Captcha, CapMonster) that return a token in 5–30 seconds for roughly $0.20–3.00 per 1000 solves.
+- **Interstitial anti-bot** (Cloudflare Challenge, Datadome, PerimeterX, Akamai, Imperva) — generally need a headless browser (FlareSolverr is the community standard) or a residential-proxy network that's already cleared the challenge (Bright Data Web Unlocker, ScraperAPI, ScrapingBee).
+
+**No adapter packages in core.** sitely won't ship `@sitely/captcha-2captcha` or similar. Site authors who need solving write the adapter for the service they pay for, or use a community-published one. This matches sitely's pattern for site packages: core is light; the ecosystem fills in.
+
 ## What the current architecture already does to stay compatible
 
 A few choices in the current architecture exist *because* of these possible future directions:

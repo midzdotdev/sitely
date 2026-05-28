@@ -410,6 +410,7 @@ These are pure in-process reads — no DB, no Redis, no network. The `/sites`, `
 
 **Edge cases the orchestrator handles directly:**
 
+- **Built-in CAPTCHA detection** runs *before* the author's [`checkResponse`](/overview/glossary#checkresponse). When the framework matches a known anti-bot service signature (Cloudflare, Datadome, PerimeterX, Incapsula, Akamai), it throws `CaptchaError({ service })` automatically and `checkResponse` doesn't run. Author can opt out per service via `detectCaptcha: { cloudflare: false }`. See [framework → Built-in CAPTCHA detection](./framework#built-in-captcha-detection).
 - **[`checkResponse`](/overview/glossary#checkresponse) throws a [framework error](/overview/glossary#framework-errors).** The error maps to `status` per the table in [Retry topology](#retry-topology). `RateLimitedError` and `TransientError` may trigger retry inside the same call; others surface immediately. Counts toward the [circuit breaker](/overview/glossary#circuit-breaker) for response-error subtypes.
 - **`validate(ctx)` returns `false`.** The HTML doesn't fit the page pattern. Return `status: "error"` with `error: { kind: "page_validation_failed", page: "<pattern>" }`. There's no generic-extraction fallback.
 - **`extract(ctx)` throws.** Apply the [freshness decision](#freshness-decision): if the consumer's `acceptStale` allows stale fallback (default), try `cacheGetStale` and return `status: "stale"` if a row exists; otherwise (no cached row, or `acceptStale: false`) return `status: "error"`. The error is logged with the page pattern and URL.

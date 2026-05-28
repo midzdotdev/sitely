@@ -148,6 +148,8 @@ Runs before per-page `validate` / `extract`. Receives a [response snapshot](/ove
 
 Connection-level failures (timeout, DNS, TCP reset) bypass `checkResponse` — the framework treats those as `TransientError` automatically with backoff retry.
 
+**Common CAPTCHA services are detected automatically.** Cloudflare, Datadome, PerimeterX, Incapsula, and Akamai matches throw `CaptchaError` before your `checkResponse` runs — you don't write detection logic for them. The two interactive captchas (`recaptcha`, `hcaptcha`) are off by default because they appear on legitimate forms too; opt in per site with `detectCaptcha: { recaptcha: true }` in `defineSite` when the site is known to gate behind one. See [Built-in CAPTCHA detection](/architecture/framework#built-in-captcha-detection) for the full table.
+
 **What happens after you throw.** The framework catches the error and dispatches per [retry topology](/overview/glossary#retry-topology):
 
 - `TransientError` → up to 3 retries inside this extract call (250ms → 1s → 4s, ±25% jitter), then surfaces `status: "error"` to the consumer.
