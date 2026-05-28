@@ -4,7 +4,7 @@ layout: home
 hero:
   name: sitely
   text: Websites as typed APIs.
-  tagline: "Each site is a typed npm package: its schema, URL patterns, and rate limits declared up front. Install what you need — the client picks up the rest from your imports."
+  tagline: Type-safe data from real websites. URL in, typed object out.
   actions:
     - theme: brand
       text: Quick start
@@ -18,17 +18,29 @@ hero:
 
 features:
   - title: Types follow your imports
-    details: Install a site package, hand it to createClient, and your domains, resource names, params, and return shapes are all inferred. No codegen. Typos are compile errors.
+    details: Install a site package, hand it to createClient, and your domains, resource names, params, and response shapes are all inferred. No codegen. Typos are compile errors.
     link: /guide/using-the-client
     linkText: Try the client
-  - title: One package per site
-    details: Each site is a typed extractor — declarative, audited, versioned. Add coverage by writing a package; remove a site by uninstalling it. No silent fallbacks; no surprise shapes.
+  - title: Refactor without fear
+    details: Sites declare their schemas up front. Your IDE knows every field; rename one and every call site lights up. Major-version mismatches surface as 409s before your users see them.
+    link: /guide/using-the-client#site-version-mismatch
+    linkText: How versioning works
+  - title: No selectors. No parsers. No CSS debugging.
+    details: The site package owns the selectors. You own the call sites. When a layout shifts, that's the package maintainer's problem — not your on-call rotation.
     link: /guide/writing-a-site
-    linkText: Write a site
-  - title: Built-in defaults
-    details: Hot and cold caching, request coalescing, per-key and per-site rate limits, robots.txt respected. Hand sitely a URL — the rest is handled.
-    link: /guide/self-hosting
-    linkText: Self-host the server
+    linkText: Inside a site package
+  - title: Schema-checked end to end
+    details: Every fresh extraction is validated against its schema before it touches the cache. Bad data never reaches your code; broken extractors surface as `status&#58; "error"`, not silent garbage.
+    link: /guide/testing
+    linkText: The test suite
+  - title: Polite by default
+    details: robots.txt respected. Per-site rate limits honoured. Adaptive backoff on 429s. Ten parallel calls fan into one upstream fetch. Your IP doesn't get banned because sitely doesn't shotgun.
+    link: /architecture/server
+    linkText: How the server behaves
+  - title: Cache and freshness, your call
+    details: Hot Redis + cold Postgres, transparent to callers. Pass maxAge=15m when you need recent data; flip acceptStale=false to refuse stale fallback. No global toggles.
+    link: /guide/consuming-the-api#freshness
+    linkText: Freshness controls
 ---
 
 <div class="design-preview-banner">
