@@ -3,8 +3,8 @@ layout: home
 
 hero:
   name: sitely
-  text: Sites you install. Typed JSON.
-  tagline: One npm install per site, one call per request. Pass installed site packages to the client; domains, resource names, params, and response shapes are all inferred end to end.
+  text: Websites as typed APIs.
+  tagline: "Each site is a typed npm package: its schema, URL patterns, and rate limits declared up front. Install what you need — the client picks up the rest from your imports."
   actions:
     - theme: brand
       text: Quick start
