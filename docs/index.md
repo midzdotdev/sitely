@@ -20,19 +20,20 @@ features:
   - title: Types follow your imports
     details: Install a site package, hand it to createClient, and your domains, resource names, params, and return shapes are all inferred. No codegen. Typos are compile errors.
     link: /guide/using-the-client
-    linkText: Try the client →
+    linkText: Try the client
   - title: One package per site
     details: Each site is a typed extractor — declarative, audited, versioned. Add coverage by writing a package; remove a site by uninstalling it. No silent fallbacks; no surprise shapes.
     link: /guide/writing-a-site
-    linkText: Write a site →
+    linkText: Write a site
   - title: Built-in defaults
     details: Hot and cold caching, request coalescing, per-key and per-site rate limits, robots.txt respected. Hand sitely a URL — the rest is handled.
     link: /guide/self-hosting
-    linkText: Self-host the server →
+    linkText: Self-host the server
 ---
 
 <div class="design-preview-banner">
-  <strong>Design Preview.</strong> sitely has no implementation yet. The docs describe the system as it will exist; the architecture is specified end-to-end so implementation can follow the contract exactly. See <a href="/overview/">What is sitely?</a> for the bigger picture.
+  <span class="design-preview-banner__chip">Design Preview</span>
+  <p>sitely has no implementation yet. The docs describe the system as it will exist; the architecture is specified end-to-end so implementation can follow the contract exactly. See <a href="/overview/">What is sitely?</a> for the bigger picture.</p>
 </div>
 
 ## A 30-second look
@@ -87,10 +88,64 @@ The client adds inference, retries, pagination, and cancellation. The HTTP API i
 | Understand the architecture | [Architecture overview](/architecture/) |
 
 <style>
-.VPHero .name { background: linear-gradient(120deg, #b48ead 30%, #88c0d0); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+.VPHero .name {
+	background: linear-gradient(120deg, #b48ead 30%, #88c0d0);
+	-webkit-background-clip: text;
+	background-clip: text;
+	-webkit-text-fill-color: transparent;
+}
 .VPHero .text { font-size: 36px; line-height: 1.15; max-width: 24ch; }
 .VPHero .tagline { max-width: 60ch; }
+
 .VPFeature { transition: transform 0.15s ease, border-color 0.15s ease; }
 .VPFeature:hover { transform: translateY(-2px); border-color: #b48ead; }
 .VPFeature .link-text-value { color: #b48ead; }
+
+/* Design Preview banner — sits between the feature cards and the 30-sec example */
+.design-preview-banner {
+	display: flex;
+	align-items: flex-start;
+	gap: 16px;
+	max-width: 1152px;
+	margin: 32px auto 48px;
+	padding: 18px 24px;
+	background:
+		linear-gradient(135deg, rgba(180, 142, 173, 0.10), rgba(136, 192, 208, 0.06));
+	border: 1px solid rgba(180, 142, 173, 0.30);
+	border-radius: 12px;
+	color: var(--vp-c-text-2);
+	font-size: 14px;
+	line-height: 1.55;
+}
+.design-preview-banner p { margin: 0; }
+.design-preview-banner a {
+	color: #b48ead;
+	font-weight: 500;
+	text-decoration: underline;
+	text-underline-offset: 2px;
+}
+.design-preview-banner a:hover {
+	color: #c9a4c5;
+}
+.design-preview-banner__chip {
+	flex-shrink: 0;
+	display: inline-block;
+	padding: 3px 10px;
+	background: #b48ead;
+	color: #1a1a23;
+	border-radius: 4px;
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	white-space: nowrap;
+}
+@media (max-width: 640px) {
+	.design-preview-banner {
+		flex-direction: column;
+		gap: 10px;
+		margin: 24px 24px 36px;
+		padding: 16px 18px;
+	}
+}
 </style>
