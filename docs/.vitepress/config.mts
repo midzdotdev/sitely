@@ -75,7 +75,7 @@ export default withMermaid(
 					},
 				],
 			},
-			socialLinks: [{ icon: "github", link: "https://github.com/midzdotdev/wapi" }],
+			socialLinks: [{ icon: "github", link: "https://github.com/midzdotdev/sitely" }],
 			search: {
 				provider: "local",
 			},

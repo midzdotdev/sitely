@@ -76,7 +76,7 @@ Requests fan **in** through middleware, **down** through the extract orchestrato
 
 ## Route topology
 
-The route table is the architectural shape of the server. The single source of truth is [`packages/server/src/app.ts`](https://github.com/sitely/wapi/blob/main/packages/server/src/app.ts); the table below mirrors what's registered there.
+The route table is the architectural shape of the server. The single source of truth is [`packages/server/src/app.ts`](https://github.com/midzdotdev/sitely/blob/main/packages/server/src/app.ts); the table below mirrors what's registered there.
 
 ### Public
 

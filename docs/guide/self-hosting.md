@@ -52,8 +52,8 @@ The server listens on `PORT` (default `3000`). `GET /healthz` returns `200` once
 If you want to track main or hack on the server itself:
 
 ```bash
-git clone https://github.com/midzdotdev/wapi
-cd wapi
+git clone https://github.com/midzdotdev/sitely
+cd sitely
 pnpm install
 pnpm --filter @sitely/server build
 
