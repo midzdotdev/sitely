@@ -1,0 +1,125 @@
+/* Hover affordance on mermaid diagrams. */
+.mermaid-zoomable {
+	position: relative;
+	cursor: zoom-in;
+	transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.mermaid-zoomable:hover {
+	transform: scale(1.005);
+	box-shadow: 0 0 0 1px rgba(180, 142, 173, 0.4);
+}
+
+.mermaid-zoomable::after {
+	content: "⛶ Click to enlarge";
+	position: absolute;
+	bottom: 8px;
+	right: 8px;
+	padding: 4px 10px;
+	background: rgba(20, 20, 30, 0.85);
+	color: #eceff4;
+	font-size: 12px;
+	font-weight: 500;
+	border-radius: 4px;
+	opacity: 0;
+	transition: opacity 0.15s ease;
+	pointer-events: none;
+	z-index: 2;
+}
+
+.mermaid-zoomable:hover::after,
+.mermaid-zoomable:focus-visible::after {
+	opacity: 1;
+}
+
+.mermaid-zoomable:focus-visible {
+	outline: 2px solid #b48ead;
+	outline-offset: 2px;
+}
+
+/* Lightbox overlay */
+html.mermaid-lightbox-open {
+	overflow: hidden;
+}
+
+.mermaid-lightbox {
+	position: fixed;
+	inset: 0;
+	z-index: 9999;
+	display: none;
+}
+
+.mermaid-lightbox.is-open {
+	display: block;
+}
+
+.mermaid-lightbox-backdrop {
+	position: absolute;
+	inset: 0;
+	background: rgba(8, 8, 12, 0.94);
+}
+
+.mermaid-lightbox-stage {
+	position: absolute;
+	inset: 0;
+	overflow: hidden;
+	touch-action: none; /* let panzoom own touch gestures */
+}
+
+.mermaid-lightbox-stage svg {
+	display: block;
+	width: 100%;
+	height: 100%;
+}
+
+.mermaid-lightbox-controls {
+	position: absolute;
+	top: 16px;
+	right: 16px;
+	display: flex;
+	gap: 8px;
+	z-index: 10000;
+}
+
+.mermaid-lightbox-btn {
+	width: 40px;
+	height: 40px;
+	border: 1px solid rgba(255, 255, 255, 0.2);
+	border-radius: 6px;
+	background: rgba(20, 20, 30, 0.9);
+	color: #eceff4;
+	font-size: 18px;
+	font-weight: 500;
+	cursor: pointer;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.mermaid-lightbox-btn:hover,
+.mermaid-lightbox-btn:focus-visible {
+	background: rgba(40, 40, 60, 0.95);
+	border-color: #b48ead;
+	outline: none;
+}
+
+.mermaid-lightbox-hint {
+	position: absolute;
+	bottom: 16px;
+	left: 50%;
+	transform: translateX(-50%);
+	padding: 6px 14px;
+	background: rgba(20, 20, 30, 0.8);
+	color: rgba(236, 239, 244, 0.85);
+	font-size: 12px;
+	border-radius: 999px;
+	z-index: 10000;
+	pointer-events: none;
+}
+
+@media (max-width: 600px) {
+	.mermaid-lightbox-hint {
+		display: none;
+	}
+}
