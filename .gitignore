@@ -1,25 +1,7 @@
 node_modules
-dist
-.turbo
-*.tsbuildinfo
 .claude/
-
-# Site packages MUST commit their manifest + emitted JSON Schemas —
-# atlas §0 keystone primitive. The `manifest-integrity` CI check
-# (atlas §9 #7) diffs the freshly-built manifest against the committed
-# one to catch packages shipped with stale manifests. Compiled JS
-# (dist/*.js, dist/*.d.ts) is NOT committed; consumers run `tsc` /
-# `sitely build` themselves.
-!packages/site-*/dist/
-packages/site-*/dist/*
-!packages/site-*/dist/manifest.json
-!packages/site-*/dist/schemas/
-!packages/site-*/dist/schemas/**
 .env
 .env.*
 !.env.example
-docs/api
-docs/sites
-docs/public/playground-data.json
 docs/.vitepress/dist
 docs/.vitepress/cache
