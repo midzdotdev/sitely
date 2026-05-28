@@ -4,7 +4,9 @@
 	"scripts": {
 		"docs:dev": "vitepress dev docs --port 5273",
 		"docs:build": "vitepress build docs",
-		"docs:preview": "vitepress preview docs --port 5273"
+		"docs:preview": "vitepress preview docs --port 5273",
+		"check:links": "lychee --offline --include-fragments --root-dir \"$PWD/docs/.vitepress/dist\" docs/.vitepress/dist",
+		"check": "pnpm docs:build && pnpm check:links"
 	},
 	"devDependencies": {
 		"@braintree/sanitize-url": "^7.1.2",

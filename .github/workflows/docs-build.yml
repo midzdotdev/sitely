@@ -6,8 +6,8 @@ on:
   pull_request:
 
 jobs:
-  build:
-    name: Build VitePress site
+  check:
+    name: docs check
     runs-on: ubuntu-latest
 
     steps:
@@ -26,8 +26,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build docs
-        run: pnpm docs:build
+      # lychee is the link checker. Install via taiki-e/install-action because
+      # the official lycheeverse/lychee-action both installs *and* runs lychee
+      # in one go — we want install-only so `pnpm check` is the single entry
+      # point for the build + link check.
+      - name: Install lychee
+        uses: taiki-e/install-action@v2
+        with:
+          tool: lychee
+
+      - name: Run checks (build + link check)
+        run: pnpm check
 
       - name: Upload built site
         if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
@@ -37,29 +46,3 @@ jobs:
           path: docs/.vitepress/dist
           retention-days: 7
           if-no-files-found: error
-
-  link-check:
-    name: Check internal links + anchors
-    runs-on: ubuntu-latest
-    needs: build
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Download built site
-        uses: actions/download-artifact@v4
-        with:
-          name: docs-dist
-          path: docs/.vitepress/dist
-
-      - name: Run lychee against built HTML
-        uses: lycheeverse/lychee-action@v2
-        with:
-          # --offline: skip external HTTP requests; we only care about
-          #            cross-document and anchor links inside our own site.
-          # --base + path: walk the rendered HTML in dist/ and resolve
-          #                links / fragments against it.
-          args: --offline --base ./docs/.vitepress/dist ./docs/.vitepress/dist
-          fail: true
-          # Reuse the lychee.toml at repo root for excludes + cache settings.
-          token: ${{ secrets.GITHUB_TOKEN }}
