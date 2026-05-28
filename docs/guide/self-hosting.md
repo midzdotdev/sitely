@@ -91,7 +91,7 @@ pnpm --filter @sitely/server start
 
 | Var | Default | Purpose |
 |---|---|---|
-| `RATE_LIMIT_PER_KEY_PER_MINUTE` | `60` | Default inbound per-API-key cap. Operators can override per tier (see [Auth tiers](#configuration-auth-tiers)). |
+| `RATE_LIMIT_PER_KEY_PER_MINUTE` | `60` | Default inbound per-API-key cap. Operators can override per consumer (see [Per-consumer rate limits](#configuration-per-consumer-rate-limits)). |
 | `RATE_LIMIT_PER_KEY_BURST` | `10` | Burst size on top of the per-minute rate. |
 
 The per-site outbound rate limit is **not** an env var. It comes from each [site definition](/overview/glossary#site-definition)'s declared `rateLimit` block. The server honours whatever the site author declared.

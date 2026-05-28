@@ -227,9 +227,9 @@ extract: async (ctx) => ({
 - `params` — values parsed from the page's [URL pattern](#url-pattern), typed against its `TParams`
 - `url`, `canonical`, `status`, `headers`, `locale` — request metadata
 - `fetch(url, opts)` — outbound HTTP fetch; obeys the site's [rate limit](#rate-limit) and [circuit breaker](#circuit-breaker)
-- `lazy(fn)` — see [`ctx.lazy`](#ctxlazy)
+- `lazy(fn)` — see [`ctx.lazy`](#ctx-lazy)
 
-**Related:** [Page driver](#page-driver), [Page element](#page-element), [URL pattern](#url-pattern), [ctx.lazy](#ctxlazy).
+**Related:** [Page driver](#page-driver), [Page element](#page-element), [URL pattern](#url-pattern), [ctx.lazy](#ctx-lazy).
 
 ## Family
 
@@ -264,7 +264,7 @@ extract: async (ctx) => ({
 
 **Sparse selection.** When the request includes [`?resources=`](#resource-filter), unrequested resources' field functions aren't invoked at all.
 
-**Related:** [Extract](#extract), [ctx.lazy](#ctxlazy), [Presence annotation](#presence-annotation), [Resource filter](#resource-filter).
+**Related:** [Extract](#extract), [ctx.lazy](#ctx-lazy), [Presence annotation](#presence-annotation), [Resource filter](#resource-filter).
 
 ## Fixture
 
@@ -464,7 +464,7 @@ The page's *first argument* is the URLPattern itself: `.page(articleUrl, { ... }
 
 **What it is:** the read-only DOM-node abstraction returned by `ctx.$(selector)` and the items in `ctx.$$(selector)`. Defines methods like `.text()`, `.attr(name)`, `.find(selector)`, `.exists()`. Read-only by design — [extract](#extract) functions don't mutate the DOM.
 
-**Related:** [Page driver](#page-driver), [Extract context](#extract-context), [NULL_ELEMENT](#null_element).
+**Related:** [Page driver](#page-driver), [Extract context](#extract-context), [NULL_ELEMENT](#null-element).
 
 ## Pagination
 

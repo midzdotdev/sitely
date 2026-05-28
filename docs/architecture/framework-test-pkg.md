@@ -6,7 +6,7 @@ Site code runs in the same Node process as the harness — no isolation layer. T
 
 ## The eight checks
 
-Each check is one function in [`checks.ts`](#checks-ts-the-eight-checks). Names appear in CI output exactly as listed; they're stable identifiers CI scripts and dashboards can match on.
+Each check is one function in [`checks.ts`](#checks-ts-—-the-eight-checks). Names appear in CI output exactly as listed; they're stable identifiers CI scripts and dashboards can match on.
 
 | # | Check name | Asserts |
 |---|---|---|

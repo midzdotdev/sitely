@@ -34,7 +34,7 @@ interface Manifest {
 }
 ```
 
-The `site.version` field comes from `package.json` and is injected by `sitely build`. The client carries it on every typed request; mismatches return `409` (see [Site versioning](./framework-build#site-versioning)).
+The `site.version` field comes from `package.json` and is injected by `sitely build`. The client carries it on every typed request; mismatches return `409` (see [Site versioning](/guide/consuming-the-api#site-versioning)).
 
 ### `manifestVersion: "1"`
 

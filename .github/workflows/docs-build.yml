@@ -37,3 +37,29 @@ jobs:
           path: docs/.vitepress/dist
           retention-days: 7
           if-no-files-found: error
+
+  link-check:
+    name: Check internal links + anchors
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download built site
+        uses: actions/download-artifact@v4
+        with:
+          name: docs-dist
+          path: docs/.vitepress/dist
+
+      - name: Run lychee against built HTML
+        uses: lycheeverse/lychee-action@v2
+        with:
+          # --offline: skip external HTTP requests; we only care about
+          #            cross-document and anchor links inside our own site.
+          # --base + path: walk the rendered HTML in dist/ and resolve
+          #                links / fragments against it.
+          args: --offline --base ./docs/.vitepress/dist ./docs/.vitepress/dist
+          fail: true
+          # Reuse the lychee.toml at repo root for excludes + cache settings.
+          token: ${{ secrets.GITHUB_TOKEN }}

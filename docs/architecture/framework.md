@@ -235,7 +235,7 @@ The context is generic over the page's URL pattern, so `ctx.params` is typed as 
 - **`$`, `$$`**: come from the active [`PageDriver`](/overview/glossary#page-driver) (see [@sitely/page](./page)). Authors never construct a driver.
 - **`jsonLd(type?)`**: pulls every `<script type="application/ld+json">` block on the page, optionally filtered by `@type`.
 - **`fetch`**: outbound HTTP. Subject to the site's [rate limit](/overview/glossary#rate-limit) and [circuit breaker](/overview/glossary#circuit-breaker).
-- **`lazy`**: see [`ctx.lazy`](/overview/glossary#ctxlazy).
+- **`lazy`**: see [`ctx.lazy`](/overview/glossary#ctx-lazy).
 
 ## Field functions
 

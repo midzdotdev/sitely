@@ -298,7 +298,7 @@ The reason for sidecar files (rather than embedding JSON Schema in the manifest)
 
 This is also why downstream consumers don't need to know which validation library the author chose: the JSON Schema sidecar is the lingua franca. The Standard Schema validator is the *runtime* contract; the [JSON Schema](/overview/glossary#json-schema) sidecar is the *published* contract.
 
-The full shape of the manifest's `schemas` block — `$ref`, `schemaOrgType`, `schemaOrgVersion` — lives in [The build manifest](./manifest#schemas-recordstring-manifestschema).
+The full shape of the manifest's `schemas` block — `$ref`, `schemaOrgType`, `schemaOrgVersion` — lives in [The build manifest](./manifest#schemas-record-string-manifestschema).
 
 ## Module-by-module
 

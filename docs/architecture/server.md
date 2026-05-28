@@ -103,7 +103,7 @@ The `/v1` prefix is the API version envelope. A future v2 surface mounts as a si
 
 ## The request lifecycle
 
-This is what happens between `GET /v1/extract?url=…` arriving and the JSON response leaving. See also [Data flow — runtime flow](./data-flow#runtime-flow) for the cross-package view.
+This is what happens between `GET /v1/extract?url=…` arriving and the JSON response leaving. See also [Data flow — runtime flow](./data-flow#runtime-flow-—-a-consumer-s-http-request) for the cross-package view.
 
 ```mermaid
 sequenceDiagram

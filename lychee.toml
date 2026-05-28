@@ -1,0 +1,20 @@
+# Lychee link-checker config.
+# Runs against the built HTML in docs/.vitepress/dist after the build step.
+#
+# We're checking *internal* links only — file existence + anchor fragments.
+# External URLs (https://...) are skipped via --offline in the workflow because
+# they're flaky for non-content reasons and a CI gate on them creates noise.
+
+# Cache config (per-run; lychee-action persists this between runs in CI).
+cache = true
+max_cache_age = "1d"
+
+# Skip mailto: links and known noise.
+exclude = [
+	"^mailto:",
+	# The deploy URL is not built yet on first push; tolerate.
+	"^https?://sitely-docs\\.pages\\.dev",
+	# GitHub deep links to blob/main paths that don't exist yet (forward references
+	# in docs like server.md → packages/server/src/app.ts).
+	"^https?://github\\.com/midzdotdev/sitely/blob/",
+]
