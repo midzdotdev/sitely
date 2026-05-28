@@ -91,22 +91,7 @@ pnpm docs:preview    # serve the static build at http://127.0.0.1:5273
 
 ## Verifying changes
 
-**Before committing any change under `docs/`, run `pnpm check`.** This is the single command that runs everything CI runs:
-
-```bash
-pnpm check
-```
-
-It composes:
-
-- `pnpm docs:build` — VitePress build. Renders the static site into `docs/.vitepress/dist`. Link validation is *not* done here (`ignoreDeadLinks: true` in `docs/.vitepress/config.mts`) — Lychee is the single source of truth.
-- `pnpm check:links` — Lychee link-checker against the built HTML. Catches both dead *file* links (`./missing.md`) and dead *anchor* fragments (`#nonexistent-section`).
-
-The same `pnpm check` runs in `.github/workflows/docs-build.yml` after dependencies are installed. A passing local run means a passing CI run.
-
-**Local prerequisite:** Lychee must be installed on `PATH`. On macOS: `brew install lychee`. Other platforms: see <https://lychee.cli.rs/installation/>. CI installs it via `taiki-e/install-action`.
-
-If `pnpm check` fails, fix the issue before committing — do not commit with broken links or a failing build.
+Before committing any change under `docs/`, run `pnpm check`. Don't commit if it fails.
 
 ## When the user says "start implementing"
 
