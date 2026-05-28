@@ -103,9 +103,6 @@ The client adds inference, retries, pagination, and cancellation. The HTTP API i
 
 /* Design Preview banner — sits between the feature cards and the 30-sec example */
 .design-preview-banner {
-	display: flex;
-	align-items: flex-start;
-	gap: 16px;
 	max-width: 1152px;
 	margin: 32px auto 48px;
 	padding: 18px 24px;
@@ -128,8 +125,8 @@ The client adds inference, retries, pagination, and cancellation. The HTTP API i
 	color: #c9a4c5;
 }
 .design-preview-banner__chip {
-	flex-shrink: 0;
 	display: inline-block;
+	margin-bottom: 12px;
 	padding: 3px 10px;
 	background: #b48ead;
 	color: #1a1a23;
@@ -138,12 +135,9 @@ The client adds inference, retries, pagination, and cancellation. The HTTP API i
 	font-weight: 700;
 	letter-spacing: 0.06em;
 	text-transform: uppercase;
-	white-space: nowrap;
 }
 @media (max-width: 640px) {
 	.design-preview-banner {
-		flex-direction: column;
-		gap: 10px;
 		margin: 24px 24px 36px;
 		padding: 16px 18px;
 	}
