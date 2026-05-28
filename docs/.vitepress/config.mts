@@ -6,6 +6,11 @@ export default withMermaid(
 		title: "sitely",
 		description: "Turn any URL into structured JSON",
 		appearance: "dark",
+		head: [
+			// Tell the Dark Reader extension to leave the site alone — VitePress
+			// already serves a dark theme; Dark Reader's auto-invert garbles it.
+			["meta", { name: "darkreader-lock" }],
+		],
 		vite: {
 			server: {
 				host: "127.0.0.1",
