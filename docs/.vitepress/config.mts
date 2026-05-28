@@ -6,10 +6,12 @@ export default withMermaid(
 		title: "sitely",
 		description: "Turn any URL into structured JSON",
 		appearance: "dark",
-		// Fail the build on dead internal file links (e.g. `./missing-page.md`).
-		// Anchor fragments (`#section`) are not covered by this check — the lychee
-		// step in .github/workflows/docs-build.yml handles those after the build.
-		ignoreDeadLinks: false,
+		// VitePress's built-in dead-link check only catches missing-file links;
+		// Lychee handles both missing files AND broken anchor fragments after
+		// the build. Disabling the VitePress check so there's one source of
+		// truth for link validation. See `pnpm check:links` + the lychee step
+		// in .github/workflows/docs-build.yml.
+		ignoreDeadLinks: true,
 		head: [
 			// Tell the Dark Reader extension to leave the site alone — VitePress
 			// already serves a dark theme; Dark Reader's auto-invert garbles it.

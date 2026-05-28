@@ -99,8 +99,8 @@ pnpm check
 
 It composes:
 
-- `pnpm docs:build` — VitePress build. Fails on dead *file* links (`./missing.md`) and on rendering errors. The `ignoreDeadLinks: false` policy is set explicitly in `docs/.vitepress/config.mts`.
-- `pnpm check:links` — Lychee link-checker against the built HTML in `docs/.vitepress/dist`. Catches dead *anchor* fragments (`#nonexistent-section`) — the gap VitePress's check leaves open.
+- `pnpm docs:build` — VitePress build. Renders the static site into `docs/.vitepress/dist`. Link validation is *not* done here (`ignoreDeadLinks: true` in `docs/.vitepress/config.mts`) — Lychee is the single source of truth.
+- `pnpm check:links` — Lychee link-checker against the built HTML. Catches both dead *file* links (`./missing.md`) and dead *anchor* fragments (`#nonexistent-section`).
 
 The same `pnpm check` runs in `.github/workflows/docs-build.yml` after dependencies are installed. A passing local run means a passing CI run.
 
