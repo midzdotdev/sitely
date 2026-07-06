@@ -1,35 +1,32 @@
 # sitely
 
-> Turn websites into structured JSON APIs.
+> Turn websites into structured JSON.
 
-**Design Preview** — sitely has no implementation yet. The architecture is fully specified end-to-end across the docs site before any code is written; the docs site is the source of truth for the contract every layer will follow.
+**Design Preview** — sitely has no implementation yet. The **implementation plan** under
+[`docs/plan/`](docs/plan/) is the source of truth: a v0-first, build-ordered set of component specs
+(interface · invariants · edge cases · acceptance criteria) plus a v1 outline. Code follows the
+plan; nothing is built yet.
 
 ## What's in this repo
 
 ```
-docs/             VitePress site — the source of truth
-planning/         Decision summaries and follow-up plans
+docs/plan/        The implementation plan — source of truth
+docs/.vitepress/  VitePress config
+planning/         v1 design reference + archived plans
 LICENSE           Apache 2.0
-package.json      Just the docs site tooling
+package.json       Docs-site tooling
 ```
 
-## Reading the docs
+## Reading the plan
 
-```bash
-pnpm install
-pnpm docs:dev   # http://127.0.0.1:5173
-```
+Start with [`docs/plan/index.md`](docs/plan/index.md) — north-stars, the v0 scope, the build order,
+and the v1 outline. Then the component specs in dependency order:
 
-Or read them on GitHub:
-
-- [Overview](docs/overview/index.md) — what sitely is
-- [Glossary](docs/overview/glossary.md) — every term defined once
-- [Architecture](docs/architecture/index.md) — the system map
-- [Future direction](docs/future/index.md) — what's intentionally out of scope today
-
-## Contributing
-
-The architecture is being settled before implementation. If you want to influence the shape of sitely, the productive place to engage is the documentation — read it, find what's unclear or wrong, and propose edits.
+- [00 · contracts](docs/plan/00-contracts.md) — shared types, the JSON-Schema boundary
+- [01 · @sitely/page](docs/plan/01-page.md) — the DOM abstraction (sync read, async render)
+- [02 · @sitely/runtime](docs/plan/02-runtime.md) — the extraction runner
+- [03 · framework/DSL](docs/plan/03-framework-dsl.md) — `defineSite` / `resource` / `page`
+- [04 · framework/test](docs/plan/04-framework-test.md) — the harness + `sitely` CLI
 
 ## License
 
