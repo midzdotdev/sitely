@@ -32,7 +32,7 @@ serves static *and* dynamic (interaction-gated) sites — in-process, **no serve
 
 **Definition of done:** you author the three example scrapers below and a `sitely dev` /
 `sitely test` loop gives schema-validated, typed extraction from committed fixtures, with
-authoring mistakes (a `derivedFrom` to nowhere, an `extract` that doesn't match its schema)
+authoring mistakes (a field function whose return doesn't match its resource's schema, a `p.many` binding that returns a single object)
 caught at **compile time**. The proof is the *feel* of authoring plus the *correctness* of the
 output — across a clean static site and a brutal dynamic one.
 
@@ -95,7 +95,7 @@ flowchart TB
 | 00 | [Contracts](./00-contracts) | *(shared types)* | `SiteDefinition` (v0 subset), driver interfaces, runner result, the JSON-Schema boundary, error taxonomy. |
 | 01 | @sitely/page | `@sitely/page` | Sync `PageDriver`/`PageElement` + Cheerio driver; Playwright/CDP driver + the `prepare` interaction API (opt-in so static-only users skip Chromium). JSDOM-ready, deferred. |
 | 02 | @sitely/runtime | `@sitely/runtime` | The runner: `launch → prepare → materialize → validate → extract → resolve field fns → validate schema`. Driver-injected. **Reused verbatim by the v1 server.** |
-| 03 | Framework — DSL | `@sitely/framework` | `defineSite().resource().page().build()`, `urlPattern`, `ExtractContext`, field functions, `ctx.lazy`, `presence`/`asset` helpers, authoring-side type-safety, minimal errors. |
+| 03 | Framework — DSL | `@sitely/framework` | `resource`, `page` (with the `p.one`/`p.many` builder), `defineSite`, `urlPattern`, `ExtractContext`, field functions, `ctx.lazy`, `presence`/`asset` helpers, authoring-side type-safety, minimal errors. |
 | 04 | Framework — test/CLI | `@sitely/framework` | In-process test harness (the v0 checks) + the `sitely` CLI (`test` · `dev` · `snapshot`). |
 
 ### Schema foundation
@@ -112,11 +112,12 @@ because JSON Schema *is* the canonical form.
   returned the wrong shape," and (v1) the source of the drift signal.
 - **Annotations = custom keywords:** `x-sitely-presence` (drift), `x-sitely-asset` (media),
   later `x-sitely-implements` (interface identity). JSON Schema is purpose-built for this.
-- **Media ref = branded string,** not a new type: `{ type: "string", format: "uri",
-  "x-sitely-asset": "image" }`, produced by an `asset("image")` helper. Plain URL on the wire;
-  the keyword is metadata.
-- **Presence is mandatory** for optional/nullable fields (build fails otherwise) — the annotation
-  seeds G4's drift detection.
+- **Asset = typed object,** not a bare string: the value is `{ url, type }`, and the
+  `asset("image")` helper emits its schema (`{ url: string, type: const "image" }` +
+  `x-sitely-asset`). Self-describing on the wire; the keyword is metadata for discovery.
+- **Presence is required on optional/nullable fields** — but as a `sitely test`/CI gate, not a
+  run gate: `sitely dev` warns and `defineSite` never blocks. The annotation seeds G4's drift
+  detection.
 
 ### In scope
 
@@ -135,8 +136,8 @@ because JSON Schema *is* the canonical form.
 The entire server (`@sitely/server`, Postgres, Redis, cache, rate-limit, robots, auth, coalescing,
 retry) · the client SDK + consumer type inference (GraphQL) · the common-interface system
 (generated catalogue, `implements`, cross-site request-by-interface) · build/manifest/signing ·
-derived resources, pagination, locales/families, `checkResponse`, captcha detection, the
-`ResponseError` family, `normalizeUrl`, `ctx.fetch`, TTL · the JSDOM driver · the reliability
+pagination, locales/families, `checkResponse`, automatic captcha detection, retry disposition,
+`normalizeUrl`, `ctx.fetch`, TTL · the JSDOM driver · the reliability
 platform · target-site auth.
 
 ### Example scrapers
@@ -203,7 +204,7 @@ The scope decisions behind this plan (from the design interview):
 - **No build/manifest in v0**; in-memory `SiteDefinition`; `sitely test` runs TS in-process.
 - **Type-safety: authoring-side only**; consumer inference deferred (likely GraphQL).
 - **Schema:** JSON Schema **required**; TypeBox **recommended**; annotations as custom keywords;
-  media-ref = branded string; validation via Ajv/TypeBox; Standard Schema demoted to escape hatch.
+  assets as typed `{ url, type }` objects; validation via Ajv/TypeBox; Standard Schema demoted to escape hatch.
 - **Common interfaces (G2):** v1 headline; v0 keeps the seam open.
 - **Example scrapers:** Reddit, LinkedIn, HN. E-commerce → v1.
 
