@@ -110,7 +110,7 @@ await s.dispose() }` — building `url` from `hostname + page.path.toUrl(params)
 5. **`dispose()` always runs** (`try/finally`), even on throw/timeout — no leaked browser pages.
 6. **Backend-agnostic.** The core takes a `PageDriver`; identical settled DOM → identical
    `RunnerResult`, whether that driver came from Cheerio or Playwright.
-7. **Same code, two callers.** The test harness ([05](./05-framework-test)) and the v1 server both
+7. **Same code, two callers.** The test harness ([04](./04-framework-test)) and the v1 server both
    call these functions; there is no server-only or test-only extraction path.
 
 ## Behaviour & edge cases
@@ -134,7 +134,7 @@ await s.dispose() }` — building `url` from `hostname + page.path.toUrl(params)
 ## Acceptance criteria
 
 - **Harness parity.** `runExtractionOnDriver(new CheerioDriver({ html: fixture, url }), page, params)`
-  produces the `RunnerResult` the [test harness](./05-framework-test) asserts against
+  produces the `RunnerResult` the [test harness](./04-framework-test) asserts against
   `expected.json` — for `ok`, `rejected` (errorCase fixtures), and `validation-error` cases.
 - **Backend parity.** For the same settled HTML, `runExtractionOnDriver` with a `CheerioDriver` and
   with a `PlaywrightDriver` return identical `RunnerResult`s — the runtime half of the

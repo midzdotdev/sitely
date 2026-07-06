@@ -135,7 +135,7 @@ class CheerioDriver implements PageDriver {
 ```
 
 Parses static HTML — what a plain fetch returns. Constructing it directly from a string is the most
-common site (the [test harness](./05-framework-test) wraps a fixture's HTML), so `status` defaults
+common site (the [test harness](./04-framework-test) wraps a fixture's HTML), so `status` defaults
 to `200`, `headers` to `{}`. `StaticBackend` wraps `fetch → new CheerioDriver(...)` for `snapshot`
 and future live paths; `materialize()` there is immediate (the HTML is already in hand).
 

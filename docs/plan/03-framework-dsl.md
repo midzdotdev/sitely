@@ -1,7 +1,7 @@
 # 03 · @sitely/framework — DSL
 
 The package authors import. It provides the factories that turn TypeBox schemas + extract logic into
-the standalone symbols the [runner](./02-runtime) executes and the [harness](./05-framework-test)
+the standalone symbols the [runner](./02-runtime) executes and the [harness](./04-framework-test)
 tests — `resource`, `page`, `defineSite`, `urlPattern` — plus the `presence` / `asset` helpers and
 the fail-fast structural validation `defineSite` runs. Its real job is the **authoring-side
 type-safety**: the generics that make a field function a *compile error* if it doesn't match its
@@ -80,7 +80,7 @@ function defineSite(config: {
 
 Collects the pages, derives the flat resource registry + provider map from their bindings, runs
 `validateSite`, and **throws on any run-blocking error** (below). It does **not** enforce
-`presence()` — that's a quality gate, not a run gate (see [the harness](./05-framework-test)), so an
+`presence()` — that's a quality gate, not a run gate (see [the harness](./04-framework-test)), so an
 author can define and run a scraper mid-development without annotating presence yet.
 
 ### Annotation helpers
@@ -118,7 +118,7 @@ Only the mistakes that stop a scraper from *running*:
 - **`invalid-schema`** — a resource `schema` that isn't a valid JSON Schema object.
 - **`bad-key`** — a resource `key` naming a field its schema doesn't have.
 
-`presence`-mandatory is **not** here — it's a `sitely test` check ([04](./05-framework-test)).
+`presence`-mandatory is **not** here — it's a `sitely test` check ([04](./04-framework-test)).
 
 ### Re-exports
 

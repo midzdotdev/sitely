@@ -23,66 +23,21 @@ export default withMermaid(
 			},
 		},
 		themeConfig: {
-			nav: [
-				{ text: "Guide", link: "/guide/using-the-client" },
-				{ text: "Overview", link: "/overview/" },
-				{ text: "Architecture", link: "/architecture/" },
-				{ text: "Future", link: "/future/" },
-			],
+			// The site is a single build-ordered plan. Nav is one entry; the
+			// sidebar is the ordered spec list. See docs/plan/index.md.
+			nav: [{ text: "Plan", link: "/plan/" }],
 			sidebar: {
-				"/guide/": [
+				"/plan/": [
 					{
-						text: "For consumers",
+						text: "Implementation plan",
 						items: [
-							{ text: "Using the TypeScript client", link: "/guide/using-the-client" },
-							{ text: "Consuming the HTTP API", link: "/guide/consuming-the-api" },
-							{ text: "Self-hosting the server", link: "/guide/self-hosting" },
+							{ text: "Overview", link: "/plan/" },
+							{ text: "00 · Contracts", link: "/plan/00-contracts" },
+							{ text: "01 · @sitely/page", link: "/plan/01-page" },
+							{ text: "02 · @sitely/runtime", link: "/plan/02-runtime" },
+							{ text: "03 · Framework — DSL", link: "/plan/03-framework-dsl" },
+							{ text: "04 · Framework — test/CLI", link: "/plan/04-framework-test" },
 						],
-					},
-					{
-						text: "For site authors",
-						items: [
-							{ text: "Writing a site package", link: "/guide/writing-a-site" },
-							{ text: "The test suite", link: "/guide/testing" },
-							{ text: "Publishing", link: "/guide/publishing" },
-						],
-					},
-				],
-				"/overview/": [
-					{
-						text: "Overview",
-						items: [
-							{ text: "What is sitely?", link: "/overview/" },
-							{ text: "Glossary", link: "/overview/glossary" },
-						],
-					},
-				],
-				"/architecture/": [
-					{
-						text: "System",
-						items: [
-							{ text: "Overview", link: "/architecture/" },
-							{ text: "Data flow", link: "/architecture/data-flow" },
-							{ text: "The manifest", link: "/architecture/manifest" },
-						],
-					},
-					{
-						text: "Packages",
-						items: [
-							{ text: "@sitely/page", link: "/architecture/page" },
-							{ text: "@sitely/schemas", link: "/architecture/schemas" },
-							{ text: "@sitely/framework", link: "/architecture/framework" },
-							{ text: " — build subsystem", link: "/architecture/framework-build" },
-							{ text: " — test-pkg subsystem", link: "/architecture/framework-test-pkg" },
-							{ text: "@sitely/server", link: "/architecture/server" },
-							{ text: "Site packages", link: "/architecture/sites" },
-						],
-					},
-				],
-				"/future/": [
-					{
-						text: "Future",
-						items: [{ text: "Future direction", link: "/future/" }],
 					},
 				],
 			},

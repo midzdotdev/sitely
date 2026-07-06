@@ -189,7 +189,7 @@ maps `RejectionReason → retry disposition` where fetching actually runs.
    extract returns `FieldFns<T>`; a `many` binding's returns `FieldFns<T>[]`.
 4. **`presence()` is a quality gate, not a run gate.** Every optional/nullable field *should* carry a
    presence rate; this is enforced by `sitely test` (and CI), warned in `sitely dev`, and **not**
-   blocked at `defineSite`/dev-run. See [04](./05-framework-test).
+   blocked at `defineSite`/dev-run. See [04](./04-framework-test).
 5. **`JsonSchema` is the required schema representation** everywhere. No validator-library type crosses
    the boundary; TypeBox is a recommended producer, not part of the contract.
 6. **`RunnerResult` is a closed union.** The harness handles all five variants; a sixth is a compile
