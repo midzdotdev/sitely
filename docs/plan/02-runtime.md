@@ -8,7 +8,7 @@ the `ExtractContext` that `validate`/`extract` receive.
 ## Purpose & dependencies
 
 **Purpose.** Turn *(a materialized DOM + a page's `validate`/`extract`)* into a `RunnerResult`, with
-per-field isolation, schema validation, and a timeout. And, one layer up, drive the full lifecycle
+per-field isolation and schema validation. And, one layer up, drive the full lifecycle
 (`launch → prepare → materialize`) for the live path.
 
 **Dependencies.** [`00 · contracts`](./00-contracts) (`SiteDefinition`, `PageDef`, `Binding`,
@@ -53,13 +53,13 @@ interface RunPolicy { launchTimeoutMs?: number; prepareTimeoutMs?: number }   //
 // This is what the test harness calls: a fixture is a post-`prepare` snapshot, so it wraps the
 // fixture HTML in a CheerioDriver and calls this directly.
 function runExtractionOnDriver(
-    driver: PageDriver, page: PageDef, params: Record<string, string>, policy?: RunPolicy,
-): Promise<RunnerResult>;
+    driver: PageDriver, pageDef: PageDef, params: Record<string, string>,
+): RunnerResult;                                    // SYNC — the core does no async work
 
 // FULL LIFECYCLE — fetch/render → prepare → materialize → runExtractionOnDriver → dispose.
 // This is what `sitely snapshot`, live checks, and the v1 server call.
 function runExtraction(opts: {
-    backend: RenderBackend; site: SiteDefinition; page: string; params: Record<string, string>; policy?: RunPolicy;
+    backend: RenderBackend; site: SiteDefinition; pageName: string; params: Record<string, string>; policy?: RunPolicy;
 }): Promise<RunnerResult>;
 ```
 
@@ -81,7 +81,7 @@ server exercise identical extraction logic.
    `page.extract`:
    - Run `binding.extract(ctx)` → `FieldFns<T>` (`one`) or `FieldFns<T>[]` (`many`).
      - the extract *body* throws `ResponseRejection` → `rejected`; throws `ExtractionError` →
-       `{ kind: "extraction-error", error, field: localName }`; any other throw / timeout →
+       `{ kind: "extraction-error", error, field: localName }`; any other throw →
        `{ kind: "error", message }`.
    - **Resolve field functions** (per item for `many`): call each `() => value`. Synchronous — no await.
      - a field throw is **isolated**: recorded as a field diagnostic
@@ -97,16 +97,31 @@ server exercise identical extraction logic.
    (`many`). The `ok` result carries the isolated field diagnostics (absent-but-schema-tolerated
    fields) for `sitely dev` and v1 drift telemetry.
 
-`runExtraction` first resolves the page by name — `const pageDef = site.pages[page]`; an unknown name
-returns `{ kind: "error", message: `unknown page: ${page}` }` — then builds `url` from `site.origin +
-pageDef.path.toUrl(params)`. Then: `const s = await backend.launch(url); try { await
-pageDef.prepare?.(s.page); const d = await s.materialize(); return runExtractionOnDriver(d, pageDef,
-params, policy) } finally { await s.dispose() }`.
+`runExtraction` wraps the core with the lifecycle. It resolves `pageDef = site.pages[pageName]` (unknown
+name → `{ kind: "error", message: `unknown page: ${pageName}` }`), refuses a `prepare` page on a static
+backend (`backend.kind === "static"` → `{ kind: "error", message: "prepare requires a dynamic backend" }`),
+and builds `url = site.origin + pageDef.path.toUrl(params)`. Then:
+
+```ts
+const s = await backend.launch(url, { timeoutMs: policy?.launchTimeoutMs });
+try {
+    if (pageDef.prepare) await withTimeout(pageDef.prepare(s.page), policy?.prepareTimeoutMs);
+    const d = await s.materialize();
+    return runExtractionOnDriver(d, pageDef, params);          // sync core — no await
+} catch (e) {
+    return e instanceof ResponseRejection
+        ? { kind: "rejected", reason: e.reason }               // author threw a categorized reason
+        : { kind: "error", message: String(e?.message ?? e) }; // launch / prepare / materialize failure
+} finally {
+    await s.dispose();                                         // always — even on throw / timeout
+}
+```
 
 ## Invariants
 
 1. **Extraction is synchronous; the lifecycle is async.** `validate`/`extract`/field-functions run
-   against a frozen `PageDriver`; only `launch`/`prepare`/`materialize`/`dispose` await.
+   against a frozen `PageDriver`; `runExtractionOnDriver` returns its `RunnerResult` synchronously.
+   Only `launch`/`prepare`/`materialize`/`dispose` await.
 2. **`materialize()` is called exactly once per run**, before any `validate`/`extract`.
 3. **Per-field isolation.** One field function throwing never aborts the others or the run; it yields
    an absent field + a diagnostic. Schema validation decides whether the absence is permitted.
@@ -140,7 +155,7 @@ params, policy) } finally { await s.dispose() }`.
 
 ## Acceptance criteria
 
-- **Harness parity.** `runExtractionOnDriver(new CheerioDriver({ html: fixture, url }), page, params)`
+- **Harness parity.** `runExtractionOnDriver(new CheerioDriver({ html: fixture, url }), pageDef, params)`
   produces the `RunnerResult` the [test harness](./04-framework-test) asserts against
   `expected.json` — for `ok`, `rejected` (errorCase fixtures), and `validation-error` cases.
 - **Backend parity.** For the same settled HTML, `runExtractionOnDriver` with a `CheerioDriver` and
@@ -156,10 +171,10 @@ params, policy) } finally { await s.dispose() }`.
 
 ## Open questions
 
-- **Where `validateExtraction` lives.** To keep `@sitely/runtime` free of the DSL, the
+- **Where `validateExtraction` lives — settled.** To keep `@sitely/runtime` free of the DSL, the
   JSON-Schema validator (Ajv/TypeBox-compiler wrapper) is a small standalone module both
-  `@sitely/runtime` and `@sitely/framework` import — not part of the DSL package. Confirm the module
-  boundary when wiring the packages.
+  `@sitely/runtime` and `@sitely/framework` import — not part of the DSL package. Kept here as the
+  resolved boundary [00](./00-contracts) points to.
 - **Lifecycle timeout defaults.** `launchTimeoutMs` / `prepareTimeoutMs` want sensible defaults —
   `prepare` + render on the dynamic path can legitimately take many seconds. (`extractTimeoutMs` was
   dropped: sync extraction can't be timed out — see the edge case above.)

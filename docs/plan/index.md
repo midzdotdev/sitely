@@ -125,7 +125,7 @@ because JSON Schema *is* the canonical form.
   interaction API.
 - `@sitely/runtime`: the driver-injected runner.
 - `@sitely/framework`: the builder DSL, `urlPattern`, `ExtractContext` (`$`, `$$`, `jsonLd`,
-  `params`, `lazy`), field functions with per-field error isolation, `presence`/`asset` helpers,
+  `params`, `url`/`status`/`headers`, `canonical`, `lazy`), field functions with per-field error isolation, `presence`/`asset` helpers,
   the JSON-Schema validation boundary, authoring-side type-safety, a minimal error surface, the
   test harness, and the CLI (`test`, `dev`, `snapshot`).
 - Three real example scrapers + their fixtures; hand-written unit fixtures; one controlled

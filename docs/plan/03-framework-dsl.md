@@ -12,7 +12,7 @@ resource's schema, and the page builder that types `ctx.params`.
 **Purpose.** The authoring DSL, its compile-time safety, and fail-fast validation of *run-blocking*
 mistakes. It produces plain data — a `SiteDefinition` — with no runtime coupling to the runner.
 
-**Dependencies.** [`00 · contracts`](./00-contracts) (the `Resource`/`Page`/`Binding`/`SiteDefinition`
+**Dependencies.** [`00 · contracts`](./00-contracts) (the `Resource`/`PageDef`/`Binding`/`SiteDefinition`
 types, `Asset`, errors, `JsonSchema`), [`02 · runtime`](./02-runtime) (the `ExtractContext` type it
 references in extract signatures), and **TypeBox** (the recommended schema producer — the source of
 `Static<>`).
@@ -60,6 +60,12 @@ function page<TParams extends Record<string, string>, const E extends Record<str
         fixtures: FixtureSpec<TParams>[];
     },
 ): Page<E>;
+
+// Page<E> — the authoring form page() returns: a PageDef plus a compile-time capture of E (the
+// extract map's shape) that drives result-type inference. defineSite erases E → a plain PageDef.
+interface Page<E extends Record<string, Binding> = Record<string, Binding>> extends PageDef {
+    readonly __bindings?: E;   // phantom: carries E for inference; absent at runtime
+}
 ```
 
 The **builder is what fixes the typed-params problem**: `p.one(Story, (ctx) => …)` types that
@@ -135,7 +141,7 @@ imports everything it needs from `@sitely/framework`.
 2. **Params are inferred and typed into extract via the builder.** `urlPattern` derives `TParams` from
    `:segments`; the page builder threads it into every binding's `ctx.params`, and into `validate`
    and `fixtures`.
-3. **`defineSite` fails fast on run-blockers only** (`path-parse`, `invalid-schema`, `bad-key`).
+3. **`defineSite` fails fast on run-blockers only** (`path-parse`, `invalid-schema`, `bad-key`, `invalid-origin`).
    `presence`-mandatory is a test gate, not a run gate.
 4. **The DSL emits plain data.** `defineSite(...)` is a `SiteDefinition` — inert data the runner
    executes; no DSL type or runtime crosses into `@sitely/runtime`.
@@ -149,7 +155,7 @@ imports everything it needs from `@sitely/framework`.
 - **Field-function type mismatch** (`headline: () => 42` where the schema says `string`) → compile
   error at the `p.one`/`p.many` call.
 - **A `p.many` extract returning a single object** → compile error.
-- **Unparseable `path` / invalid schema / bad `key`** → `validateSite`, `defineSite` throws.
+- **Unparseable `path` / invalid schema / bad `key` / invalid `origin`** → `validateSite`, `defineSite` throws.
 - **Optional field without `presence()`** → **not** a `defineSite` error; the scraper runs. `sitely
   test` flags it (`04`); `sitely dev` warns.
 - **Raw JSON Schema (non-TypeBox) resource** → runs at runtime; `Static<>` is `unknown`, so its field

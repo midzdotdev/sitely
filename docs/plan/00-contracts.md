@@ -70,8 +70,8 @@ interface PageDef {
     fixtures: FixtureSpec[];
 }
 
-interface FixtureSpec {
-    params: Record<string, string>;
+interface FixtureSpec<TParams extends Record<string, string> = Record<string, string>> {
+    params: TParams;
     errorCase?: boolean | RejectionReason;   // true = expect any rejection; a reason = expect that one
 }
 ```
@@ -87,8 +87,8 @@ interface SiteDefinition {
     displayName: string;
     origin: string;                           // scheme://host[:port]; single origin in v0, multi-origin is v1
     pages: Record<string, PageDef>;           // keyed by page name
-    // The flat resource registry + resource→page provider map are derived statically at defineSite:
-    //   resources come from pages' bindings; provider(resource) = the page whose extract binds it.
+    // No resource registry / provider map is stored in v0 — nothing reads one (runExtraction resolves
+    //   by page name). Both are v1 seams the interface catalogue derives on demand from the bindings.
 }
 ```
 
@@ -208,8 +208,8 @@ maps `RejectionReason → retry disposition` where fetching actually runs.
   siblings continue; schema validation decides whether absence is permitted (it is, for
   `presence()`-annotated fields). In v0 every field-level throw is isolated the same way regardless of
   class — the class is a drift label, not different control flow (a harder disposition for `malformed`
-  is v1). A throw from a binding's extract **body** (not a field) instead fails the whole binding as
-  `extraction-error` — see [02](./02-runtime).
+  is v1). A throw from a binding's extract **body** (not a field) instead fails the whole binding — as
+  `rejected`, `extraction-error`, or `error` per the thrown class; see [02](./02-runtime).
 - **A `many` extract returns `[]`** → a valid empty collection, not an error.
 - **`prepare` on a page whose site is run with a static driver** → unsupported; a page declaring
   `prepare` requires a dynamic driver (flagged; see [01](./01-page)).
@@ -223,7 +223,7 @@ maps `RejectionReason → retry disposition` where fetching actually runs.
 - A field function whose return type doesn't match its resource's schema field → compile error (the
   field-function map is typed against `Static<schema>`).
 - A `p.many` extract returning a single object instead of an array → compile error.
-- A page's `validate`/`fixtures` `ctx.params` typed to the path's `:segments`.
+- A page's `validate` `ctx.params` and each `fixtures[i].params` typed to the path's `:segments`.
 - `Static<asset("image")>` is `{ url: string; type: "image" }`; `asset.image(url)` matches it.
 
 **Runtime:**

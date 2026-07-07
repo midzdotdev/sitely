@@ -14,7 +14,7 @@ isolation (the trust boundary is the lockfile, same as any dependency; managed i
 **Dependencies.** [`03 · DSL`](./03-framework-dsl) (loads the `SiteDefinition`, reuses `validateSite`
 and the `presence`-detection rule), [`02 · runtime`](./02-runtime) (`runExtractionOnDriver` for the
 fixture path, `runExtraction` for `snapshot`), [`01 · page`](./01-page) (`CheerioDriver`,
-`PlaywrightBackend`), [`00`](./00-contracts).
+`StaticBackend`, `PlaywrightBackend`), [`00`](./00-contracts).
 
 ## Fixtures on disk
 
@@ -86,7 +86,7 @@ sitely snapshot <url> | --page <name> '<params-json>' [--overwrite]
 - **`sitely snapshot`** — capture a fixture: resolve `(page, params)` from the URL (reverse-parse via
   the registered patterns) or from `--page` + params, run [`02`'s `runExtraction` lifecycle](./02-runtime)
   (`launch → prepare → materialize`) against the right backend — `PlaywrightBackend` for a page with
-  `prepare`, static fetch otherwise — and write the settled `<hash>.html` + `<hash>.meta.json`. It
+  `prepare`, `StaticBackend` (fetch → `CheerioDriver`) otherwise — and write the settled `<hash>.html` + `<hash>.meta.json`. It
   ignores robots.txt (an explicit author action, not server traffic). For a dynamic page, the capture
   runs `prepare`, so the committed HTML is already post-interaction.
 
@@ -134,8 +134,9 @@ sitely snapshot <url> | --page <name> '<params-json>' [--overwrite]
 
 ## Open questions
 
-- **Extract-timeout surfacing in `dev`.** A hung selector should show as a per-field timeout, not
-  wedge the watch loop — confirm the `dev` loop wraps each fixture in the runner's timeout.
+- **A hung field function wedges `sitely dev`'s watch loop.** Extraction is synchronous and un-timed
+  (see [02](./02-runtime)), so a pathological selector blocks the loop until the process is killed —
+  accepted as an author bug, though a coarse per-fixture wall-clock guard in `dev` may be worth it.
 - **`snapshot` params ergonomics.** JSON on the CLI (`'{"id":"1"}'`) is clunky; a friendlier param
   syntax or an interactive prompt may be worth it.
 - **Fixture hashing collisions.** 12 hex chars is comfortable for realistic fixture counts; revisit
