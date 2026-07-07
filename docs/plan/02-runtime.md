@@ -33,7 +33,7 @@ interface ExtractContext<TParams extends Record<string, string> = Record<string,
     url: string;
     status: number;
     headers: Record<string, string>;
-    canonical: string | null;
+    canonical: string | null;                     // href of the first <link rel="canonical">, verbatim; null if absent
     lazy<T>(fn: () => T): () => T;                 // memoised shared computation across a page's bindings/fields
     // fetch(url, opts) and locale are v1.
 }
@@ -47,7 +47,7 @@ JSON-LD once, read from many fields) and is shared across every binding on the p
 ### The two entry points
 
 ```ts
-interface RunPolicy { extractTimeoutMs?: number }   // default 30_000
+interface RunPolicy { launchTimeoutMs?: number; prepareTimeoutMs?: number }   // async-lifecycle timeouts only; extraction is sync and un-timed
 
 // CORE — given an already-materialized DOM, run one page's extraction. No lifecycle, no `prepare`.
 // This is what the test harness calls: a fixture is a post-`prepare` snapshot, so it wraps the
@@ -77,16 +77,18 @@ server exercise identical extraction logic.
    - throws `ResponseRejection(r)` → `{ kind: "rejected", reason: r }`.
    - returns `false` → `{ kind: "rejected", reason: "wrong-page" }`.
    - returns `true` → continue.
-3. **Extract, per binding**, under `extractTimeoutMs`. For each `[localName, binding]` in
+3. **Extract, per binding.** For each `[localName, binding]` in
    `page.extract`:
    - Run `binding.extract(ctx)` → `FieldFns<T>` (`one`) or `FieldFns<T>[]` (`many`).
      - the extract *body* throws `ResponseRejection` → `rejected`; throws `ExtractionError` →
        `{ kind: "extraction-error", error, field: localName }`; any other throw / timeout →
        `{ kind: "error", message }`.
-   - **Resolve field functions** (per item for `many`): call each `() => value`, awaiting Promises.
-     - a field throw is **isolated**: recorded as a field diagnostic (`{ output, index?, field, message }`),
-       the field is treated as **absent**, siblings continue. (`MissingDataError` from a field is the
-       author's explicit "this field is absent" signal.)
+   - **Resolve field functions** (per item for `many`): call each `() => value`. Synchronous — no await.
+     - a field throw is **isolated**: recorded as a field diagnostic
+       (`{ output, index?, field, reason, message }`), the field is treated as **absent**, siblings
+       continue. `reason` is `"missing"` for `MissingDataError`, `"malformed"` for `MalformedDataError`,
+       else `"error"`. All field-level throws are isolated identically in v0 — the class is a drift
+       label, not different control flow.
    - **Schema-validate** the resolved item(s) against `binding.resource.schema` via `validateExtraction`
      — `one` validates the object, `many` validates each element. Failures collect into
      `ValidationIssue[]`.
@@ -95,9 +97,11 @@ server exercise identical extraction logic.
    (`many`). The `ok` result carries the isolated field diagnostics (absent-but-schema-tolerated
    fields) for `sitely dev` and v1 drift telemetry.
 
-`runExtraction` wraps this: `const s = await backend.launch(url); try { await page.prepare?.(s.page);
-const d = await s.materialize(); return runExtractionOnDriver(d, page, params, policy) } finally {
-await s.dispose() }` — building `url` from `hostname + page.path.toUrl(params)`.
+`runExtraction` first resolves the page by name — `const pageDef = site.pages[page]`; an unknown name
+returns `{ kind: "error", message: `unknown page: ${page}` }` — then builds `url` from `site.origin +
+pageDef.path.toUrl(params)`. Then: `const s = await backend.launch(url); try { await
+pageDef.prepare?.(s.page); const d = await s.materialize(); return runExtractionOnDriver(d, pageDef,
+params, policy) } finally { await s.dispose() }`.
 
 ## Invariants
 
@@ -120,8 +124,11 @@ await s.dispose() }` — building `url` from `hostname + page.path.toUrl(params)
   runs.
 - **`prepare` present but backend is static** → `runExtraction` returns `error`
   (`"prepare requires a dynamic backend"`) rather than silently extracting a half-built DOM.
-- **`extractTimeoutMs` fires** mid-extract → `{ kind: "error", message: "extract timeout" }`. A hung
-  selector can't wedge the harness or the server.
+- **A hung *sync* extractor can't be timed out.** Extraction is synchronous, so no wall-clock timeout
+  interrupts it — a pathological field function (infinite loop, catastrophic-backtrack regex) is an
+  author bug the `determinism` check and review catch, not a runtime guard; hard isolation is a v1
+  *server* concern. Timeouts apply only to the async lifecycle (`launchTimeoutMs`, `prepareTimeoutMs`,
+  `waitForSelector`).
 - **A `many` binding yields `[]`** → valid; `data[localName] = []`, `ok`.
 - **A resolved field is `undefined`** (absent) → permitted iff the schema allows it (a
   `presence()`-annotated optional); otherwise it surfaces as a `validation-error`.
@@ -142,7 +149,7 @@ await s.dispose() }` — building `url` from `hostname + page.path.toUrl(params)
 - **Per-field isolation.** A fixture where one field function throws yields `ok` (or
   `validation-error` if that field was required) with the other fields resolved and a diagnostic for
   the thrower.
-- **Rejection mapping.** `validate → false`, a thrown `ResponseRejection("captcha")`, and an extract
+- **Rejection mapping.** `validate → false`, a thrown `ResponseRejection("captcha")`, and a `prepare`
   timeout map to `rejected: "wrong-page"`, `rejected: "captcha"`, and `error` respectively.
 - **Lifecycle discipline.** A `prepare` that throws still calls `dispose`; a static backend refuses a
   `prepare` page.
@@ -153,8 +160,8 @@ await s.dispose() }` — building `url` from `hostname + page.path.toUrl(params)
   JSON-Schema validator (Ajv/TypeBox-compiler wrapper) is a small standalone module both
   `@sitely/runtime` and `@sitely/framework` import — not part of the DSL package. Confirm the module
   boundary when wiring the packages.
-- **`extractTimeoutMs` default** (30 s pencilled in) — revisit against the dynamic path, where
-  `prepare` + render can legitimately take longer; the timeout wraps *extract*, not the lifecycle, so
-  it may want a separate `prepareTimeoutMs`.
+- **Lifecycle timeout defaults.** `launchTimeoutMs` / `prepareTimeoutMs` want sensible defaults —
+  `prepare` + render on the dynamic path can legitimately take many seconds. (`extractTimeoutMs` was
+  dropped: sync extraction can't be timed out — see the edge case above.)
 - **Field diagnostics shape** on the `ok` result — enough for `sitely dev`'s per-field diff now; the
   v1 drift telemetry may want richer per-field structure.

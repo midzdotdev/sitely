@@ -136,8 +136,22 @@ class CheerioDriver implements PageDriver {
 
 Parses static HTML — what a plain fetch returns. Constructing it directly from a string is the most
 common site (the [test harness](./04-framework-test) wraps a fixture's HTML), so `status` defaults
-to `200`, `headers` to `{}`. `StaticBackend` wraps `fetch → new CheerioDriver(...)` for `snapshot`
-and future live paths; `materialize()` there is immediate (the HTML is already in hand).
+to `200`, `headers` to `{}`.
+
+### `StaticBackend` — the static render backend
+
+```ts
+class StaticBackend implements RenderBackend {
+    readonly kind = "static";
+    launch(url: string, opts?: LaunchOptions): Promise<RenderSession>;   // fetch(url) → wrap the body in a CheerioDriver
+    // session.materialize() returns that driver immediately (the HTML is already in hand);
+    // session.page throws UnsupportedInteractionError (no interaction on a static backend).
+}
+```
+
+`StaticBackend` wraps `fetch → new CheerioDriver(...)` for `snapshot` and future live paths;
+`materialize()` is immediate. Fixture tests skip it — they wrap committed HTML in a `CheerioDriver`
+and call `runExtractionOnDriver` directly.
 
 ### `PlaywrightDriver` / `PlaywrightBackend` — the dynamic proof
 

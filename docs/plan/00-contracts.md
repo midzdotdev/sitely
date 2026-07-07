@@ -5,7 +5,7 @@ The shared type surface every v0 component imports. Types only, plus the minimal
 shape, this spec is right.
 
 Scoped to **v0**. The manifest, the seven-status wire envelope, the build subsystem, versioning,
-and multi-host origins are **v1** — they belong to the server/build, which v0 doesn't have.
+and multi-origin sites are **v1** — they belong to the server/build, which v0 doesn't have.
 
 ## Purpose & dependencies
 
@@ -37,8 +37,9 @@ interface Resource<Name extends string = string, T = unknown> {
     readonly key?: keyof T & string;           // identity field, for addressing a single item (v1)
 }
 
-// FieldFns — every leaf is a zero-arg function producing that field. Even constants.
-type FieldFns<T> = { [K in keyof T]: () => T[K] | Promise<T[K]> };
+// FieldFns — every leaf is a synchronous zero-arg function producing that field. Even constants.
+// Sync by design: extraction reads a settled snapshot; v0 has no async data source in a field.
+type FieldFns<T> = { [K in keyof T]: () => T[K] };
 
 // A Binding is a resource + cardinality + its per-page extract. Produced by the page builder's
 // p.one(resource, fn) / p.many(resource, fn); it appears as a value in the page's extract map.
@@ -84,7 +85,7 @@ carries its own types.
 interface SiteDefinition {
     id: string;
     displayName: string;
-    hostname: string;                         // single host in v0; multi-host is v1
+    origin: string;                           // scheme://host[:port]; single origin in v0, multi-origin is v1
     pages: Record<string, PageDef>;           // keyed by page name
     // The flat resource registry + resource→page provider map are derived statically at defineSite:
     //   resources come from pages' bindings; provider(resource) = the page whose extract binds it.
@@ -93,12 +94,12 @@ interface SiteDefinition {
 
 ### URL pattern
 
-Bidirectional; `TParams` inferred from `:segment` placeholders. `path` is relative to `hostname`.
+Bidirectional; `TParams` inferred from `:segment` placeholders. `path` is relative to the site's `origin`.
 
 ```ts
 interface URLPattern<TParams extends Record<string, string> = Record<string, string>> {
     readonly pattern: string;
-    toUrl(params: TParams): string;           // path only; the runner prepends `https://${hostname}`
+    toUrl(params: TParams): string;           // path only; the runner prepends the site's `origin`
     parseUrl(path: string): TParams | null;
 }
 ```
@@ -150,7 +151,7 @@ type RunnerResult =
     | { kind: "validation-error"; issues: ValidationIssue[] }
     | { kind: "error"; message: string };               // timeout, uncaught throw, OOM
 
-interface FieldDiagnostic { output: string; index?: number; field: string; message: string }  // isolated field throws
+interface FieldDiagnostic { output: string; index?: number; field: string; reason: "missing" | "malformed" | "error"; message: string }  // isolated field throw; reason from the thrown class
 ```
 
 ### Error taxonomy
@@ -168,8 +169,8 @@ class ResponseRejection extends FrameworkError { constructor(reason: RejectionRe
 
 // Extraction layer — good DOM, extracting from it failed. Author signals.
 class ExtractionError    extends FrameworkError {}
-class MissingDataError   extends ExtractionError { constructor(opts: { field: string; reason: string }) }
-class MalformedDataError extends ExtractionError { constructor(opts: { field: string; reason: string }) }
+class MissingDataError   extends ExtractionError { constructor(opts: { field: string; detail: string }) }   // → field diagnostic reason "missing"
+class MalformedDataError extends ExtractionError { constructor(opts: { field: string; detail: string }) }   // → field diagnostic reason "malformed"
 
 // Schema layer — extracted data doesn't fit the schema. The runner throws this; authors don't.
 class ValidationError    extends FrameworkError {}
@@ -185,7 +186,7 @@ maps `RejectionReason → retry disposition` where fetching actually runs.
    page via `p.many`. The resource is the interop unit a consumer queries by.
 2. **No cycle.** Resources and pages are standalone symbols; a page depends on the resource symbols
    it's handed, the site on its pages. Strictly a DAG.
-3. **Page-extract leaves are all field functions** (`() => value`), even constants. A `one` binding's
+3. **Page-extract leaves are all synchronous field functions** (`() => value`), even constants. A `one` binding's
    extract returns `FieldFns<T>`; a `many` binding's returns `FieldFns<T>[]`.
 4. **`presence()` is a quality gate, not a run gate.** Every optional/nullable field *should* carry a
    presence rate; this is enforced by `sitely test` (and CI), warned in `sitely dev`, and **not**
@@ -202,8 +203,13 @@ maps `RejectionReason → retry disposition` where fetching actually runs.
 - **Two pages produce the same resource** (a permalink page `p.one` + a thread page `p.many`) — both
   valid; resource-driven access (v1) picks the cheaper cardinality for a single-item request.
 - **A field function throws** → caught per-field; recorded as a `FieldDiagnostic` (`output.field`, or
-  `output[i].field` for `many`); the field is absent; siblings continue; schema validation decides
-  whether absence is permitted (it is, for `presence()`-annotated fields).
+  `output[i].field` for `many`) whose `reason` comes from the thrown class (`MissingDataError` →
+  `"missing"`, `MalformedDataError` → `"malformed"`, anything else → `"error"`); the field is absent;
+  siblings continue; schema validation decides whether absence is permitted (it is, for
+  `presence()`-annotated fields). In v0 every field-level throw is isolated the same way regardless of
+  class — the class is a drift label, not different control flow (a harder disposition for `malformed`
+  is v1). A throw from a binding's extract **body** (not a field) instead fails the whole binding as
+  `extraction-error` — see [02](./02-runtime).
 - **A `many` extract returns `[]`** → a valid empty collection, not an error.
 - **`prepare` on a page whose site is run with a static driver** → unsupported; a page declaring
   `prepare` requires a dynamic driver (flagged; see [01](./01-page)).

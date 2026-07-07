@@ -39,7 +39,7 @@ in-process, **no server, no consumer**. Locked model:
   arrays. A page produces one or many via a page **builder** (`p.one`/`p.many`) that gives extract
   typed `ctx.params`. No "derived" resources (cut — pure transforms are helpers inside `extract`).
 - **Pages** = path + `validate` + optional async `prepare` (interaction) + `extract` (a builder
-  function) + `fixtures`. `defineSite({ id, displayName, hostname, pages })` — single host in v0.
+  function) + `fixtures`. `defineSite({ id, displayName, origin, pages })` — single origin in v0.
 - **Extract leaves are field functions** (`() => value`), even constants — for per-field error
   isolation and drift telemetry.
 - **DOM is a sync read surface** (`PageDriver`/`PageElement`, `$`/`$$`) over a **settled snapshot**;

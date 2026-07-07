@@ -41,7 +41,7 @@ function urlPattern<P extends string>(
 ): URLPattern<ExtractParams<P>>;
 ```
 
-`urlPattern("/item/:id")` is `URLPattern<{ id: string }>`. `path` is relative to the site's `hostname`.
+`urlPattern("/item/:id")` is `URLPattern<{ id: string }>`. `path` is relative to the site's `origin`.
 
 ### `page` — binds params, collects bindings via a builder
 
@@ -52,7 +52,6 @@ interface PageBuilder<TParams extends Record<string, string>> {
 }
 
 function page<TParams extends Record<string, string>, const E extends Record<string, Binding>>(
-    name: string,
     def: {
         path: URLPattern<TParams>;
         validate: (ctx: ExtractContext<TParams>) => boolean;
@@ -68,17 +67,20 @@ extract's `ctx.params` as the page's `TParams`, because the binding is created *
 where the path's params are known — not on the standalone resource symbol. `E` is captured with a
 `const` type parameter so the page's result shape (`{ [k]: one ? T : T[] }`) is derived from the
 bindings' cardinalities. The page factory calls `extract(p)` once with a real builder and stores the
-resolved `Record<string, Binding>` in the `PageDef`.
+resolved `Record<string, Binding>` in the `PageDef`. `page()` returns a **`Page<E>`** — the typed
+authoring form carrying `E` for result-shape inference; `defineSite` erases each into the runtime
+**`PageDef`** ([00](./00-contracts)), keyed by the name you give it in the `pages` record (the page
+has no `name` of its own).
 
 ### `defineSite` — assemble + validate run-blockers
 
 ```ts
 function defineSite(config: {
-    id: string; displayName: string; hostname: string; pages: Page[];
+    id: string; displayName: string; origin: string; pages: Record<string, Page>;
 }): SiteDefinition;
 ```
 
-Collects the pages, derives the flat resource registry + provider map from their bindings, runs
+Keys the page record by name, derives the flat resource registry + provider map from their bindings, runs
 `validateSite`, and **throws on any run-blocking error** (below). It does **not** enforce
 `presence()` — that's a quality gate, not a run gate (see [the harness](./04-framework-test)), so an
 author can define and run a scraper mid-development without annotating presence yet.
@@ -101,14 +103,14 @@ function presence<S extends TSchema>(schema: S, rate: number): S;    // wraps an
 So authoring an asset field stays lean and type-checked — the field function returns the typed object:
 
 ```ts
-heroImage: () => asset.image(ctx.$('meta[property="og:image"]').attr("content") ?? "")
+heroImage: () => asset.image(ctx.$('meta[property="og:image"]')?.attr("content") ?? "")
 //   returns { url, type: "image" }, matching the resource's asset("image") schema
 ```
 
 ### Static validation (run-blockers only)
 
 ```ts
-interface SiteValidationError { kind: "path-parse" | "invalid-schema" | "bad-key"; where: string; message: string }
+interface SiteValidationError { kind: "path-parse" | "invalid-schema" | "bad-key" | "invalid-origin"; where: string; message: string }
 function validateSite(site: SiteDefinition): SiteValidationError[];
 ```
 
@@ -117,6 +119,7 @@ Only the mistakes that stop a scraper from *running*:
 - **`path-parse`** — a page `path` that doesn't parse as a URL pattern.
 - **`invalid-schema`** — a resource `schema` that isn't a valid JSON Schema object.
 - **`bad-key`** — a resource `key` naming a field its schema doesn't have.
+- **`invalid-origin`** — the site `origin` doesn't parse as a `scheme://host[:port]` origin.
 
 `presence`-mandatory is **not** here — it's a `sitely test` check ([04](./04-framework-test)).
 
