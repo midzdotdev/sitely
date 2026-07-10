@@ -52,10 +52,11 @@ in-process, **no server, no consumer**. Locked model:
   + examples use it — `Static<>` gives field-level type-safety). Annotations are custom keywords
   (`x-sitely-presence`, `x-sitely-asset`). An **asset is a typed `{ url, type }` object** in the data.
 - **`presence()` is a test-time gate, not a run gate** — `sitely test`/CI enforce it, `sitely dev`
-  warns, `defineSite` only throws on run-blockers (path parse, invalid schema, bad key).
+  warns, `defineSite` only throws on run-blockers (path parse, invalid schema, bad key, invalid origin).
 - **No build/manifest in v0** — the in-memory `SiteDefinition` is the whole declaration; `sitely
-  test` runs TS in-process. The **5 checks:** `fixture-extraction`, `schema-conformance`,
-  `determinism`, `error-path-coverage`, `presence-coverage`.
+  test` runs TS in-process. The **`sitely test` checks** are definition-level (`site-nonempty`,
+  `page-nonempty`, `path-codec`) and fixture-level (`fixture-presence`, `fixture-extraction`,
+  `schema-conformance`, `determinism`, `error-path-coverage`, `presence-coverage`, `path-url-match`).
 - **Example scrapers:** Reddit, LinkedIn, HN (real, hard, dynamic-heavy). E-commerce is v1.
 
 ## v1 — outline (see `docs/plan/index.md`)

@@ -94,12 +94,16 @@ interface SiteDefinition {
 
 ### URL pattern
 
-Bidirectional; `TParams` inferred from `:segment` placeholders. `path` is relative to the site's `origin`.
+Bidirectional; `TParams` inferred from `:segment` placeholders. `path` is relative to the site's
+`origin`. `toUrl` emits the **canonical** path (a normal form) for its params, so `parseUrl(toUrl(p))`
+recovers `p` and `canon(url) = toUrl(parseUrl(url))` is a stable normalisation — the v1 cache key. The
+codec's round-trip + canonical idempotence are verified by [`04`'s `path-codec` check](./04-framework-test).
+This URL normal form is distinct from `ctx.canonical` (a page's `<link rel="canonical">`).
 
 ```ts
 interface URLPattern<TParams extends Record<string, string> = Record<string, string>> {
     readonly pattern: string;
-    toUrl(params: TParams): string;           // path only; the runner prepends the site's `origin`
+    toUrl(params: TParams): string;           // the CANONICAL path for these params; the runner prepends the `origin`
     parseUrl(path: string): TParams | null;
 }
 ```

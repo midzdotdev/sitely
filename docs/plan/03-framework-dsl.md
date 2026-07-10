@@ -42,6 +42,8 @@ function urlPattern<P extends string>(
 ```
 
 `urlPattern("/item/:id")` is `URLPattern<{ id: string }>`. `path` is relative to the site's `origin`.
+`toUrl` produces the **canonical** path ([00](./00-contracts)); the optional `paramsSchema` constrains
+each param — and seeds the generator for the property-based [`path-codec`](./04-framework-test) check.
 
 ### `page` — binds params, collects bindings via a builder
 
