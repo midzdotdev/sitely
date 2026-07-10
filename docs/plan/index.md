@@ -92,10 +92,10 @@ flowchart TB
 
 | # | Spec | Package | Scope |
 |---|---|---|---|
-| 00 | [Contracts](./00-contracts) | *(shared types)* | `SiteDefinition` (v0 subset), driver interfaces, runner result, the JSON-Schema boundary, error taxonomy. |
-| 01 | @sitely/page | `@sitely/page` | Sync `PageDriver`/`PageElement` + Cheerio driver; Playwright/CDP driver + the `prepare` interaction API (opt-in so static-only users skip Chromium). JSDOM-ready, deferred. |
-| 02 | @sitely/runtime | `@sitely/runtime` | The runner: `launch → prepare → materialize → validate → extract → resolve field fns → validate schema`. Driver-injected. **Reused verbatim by the v1 server.** |
-| 03 | Framework — DSL | `@sitely/framework` | `resource`, `page` (with the `p.one`/`p.many` builder), `defineSite`, `urlPattern`, `ExtractContext`, field functions, `ctx.lazy`, `presence`/`asset` helpers, authoring-side type-safety, minimal errors. |
+| 00 | [Contracts](./00-contracts) | *(shared types)* | `SiteDefinition`, the read-surface + context interfaces (`PageElement`/`PageDriver`/`PageController`/`ExtractContext`), `PathPattern`, `RunnerResult`, the JSON-Schema boundary, error taxonomy. |
+| 01 | @sitely/page | `@sitely/page` | Implements the sync read surface (declared in 00) — Cheerio + Playwright/CDP drivers + the `prepare` interaction lifecycle (opt-in so static-only users skip Chromium). JSDOM-ready, deferred. |
+| 02 | @sitely/runtime | `@sitely/runtime` | The runner: `launch → prepare → materialize → validate → extract → resolve field fns → validate schema`. Driver-injected; builds `ExtractContext`. **Reused verbatim by the v1 server.** |
+| 03 | Framework — DSL | `@sitely/framework` | `resource`, `page` (`p.one`/`p.many` builder, `render` discriminant), `defineSite`, `urlPattern` (the standalone `PathPattern` codec), field functions, `presence`/`asset` helpers, authoring-side type-safety, minimal errors. |
 | 04 | Framework — test/CLI | `@sitely/framework` | In-process test harness (the v0 checks) + the `sitely` CLI (`test` · `dev` · `snapshot`). |
 
 ### Schema foundation
@@ -111,10 +111,12 @@ because JSON Schema *is* the canonical form.
 - **Validation:** Ajv or TypeBox's compiler over the JSON Schema — a net catching "the selector
   returned the wrong shape," and (v1) the source of the drift signal.
 - **Annotations = custom keywords:** `x-sitely-presence` (drift), `x-sitely-asset` (media),
-  later `x-sitely-implements` (interface identity). JSON Schema is purpose-built for this.
-- **Asset = typed object,** not a bare string: the value is `{ url, type }`, and the
-  `asset("image")` helper emits its schema (`{ url: string, type: const "image" }` +
-  `x-sitely-asset`). Self-describing on the wire; the keyword is metadata for discovery.
+  later `x-sitely-implements` (interface identity) and `x-sitely-ttl` (freshness). JSON Schema is
+  purpose-built for this.
+- **Asset = typed object,** not a bare string: `{ url, type, format?, mimeType? }` — `type` the media
+  kind, `format` the transport (`hls`/`dash` = manifest, `progressive` = file), `mimeType` the
+  content-type when the DOM exposes it. The `asset<K>(kind)` helper emits its schema + `x-sitely-asset`;
+  self-describing on the wire.
 - **Presence is required on optional/nullable fields** — but as a `sitely test`/CI gate, not a
   run gate: `sitely dev` warns and `defineSite` never blocks. The annotation seeds G4's drift
   detection.
@@ -123,11 +125,12 @@ because JSON Schema *is* the canonical form.
 
 - `@sitely/page`: the sync DOM interface + Cheerio and Playwright/CDP drivers + the `prepare`
   interaction API.
-- `@sitely/runtime`: the driver-injected runner.
-- `@sitely/framework`: the builder DSL, `urlPattern`, `ExtractContext` (`$`, `$$`, `jsonLd`,
-  `params`, `url`/`status`/`headers`, `canonical`, `lazy`), field functions with per-field error isolation, `presence`/`asset` helpers,
-  the JSON-Schema validation boundary, authoring-side type-safety, a minimal error surface, the
-  test harness, and the CLI (`test`, `dev`, `snapshot`).
+- `@sitely/runtime`: the driver-injected runner + `ExtractContext` (`$`/`$$`, `jsonLd`, `params`,
+  `url`/`status`/`headers`, `canonical`; the interface is declared in 00, built here).
+- `@sitely/framework`: the builder DSL, `urlPattern` (via the standalone `PathPattern` codec), field
+  functions with per-field error isolation, `presence`/`asset` helpers, the JSON-Schema validation
+  boundary, authoring-side type-safety, a minimal error surface, the test harness, and the CLI
+  (`test`, `dev`, `snapshot`).
 - Three real example scrapers + their fixtures; hand-written unit fixtures; one controlled
   dynamic test page.
 
@@ -180,6 +183,18 @@ By priority stack:
   resources; introspection supplies types, likely dissolving heavy consumer-side TS generics).
 - **Runtime:** `@sitely/server` — reuses the v0 `@sitely/runtime`; loads packages, fetches/renders,
   caches, rate-limits, robots, the seven-status wire envelope.
+- **Media delivery (the signed-URL problem):** many sites serve media — especially HLS/MPEG-DASH
+  manifests + their segments — via **signed URLs bound to IP + expiry**, so an extracted `url` is
+  useless to a remote consumer and dies within minutes. The answer is a **media relay over a
+  centralised static egress**: all sitely outbound routes through one stable IP (a NAT / egress
+  gateway), so any node can fetch IP-scoped assets; the relay proxies the asset — **rewriting HLS/DASH
+  manifests** so segment requests route through it too — and **re-derives** expired signed URLs on
+  demand. The extracted `url` is a *source reference*, not a durable link; the asset's `format` tag
+  tells the relay which need manifest-rewriting.
+- **Field/resource freshness (TTL):** an `x-sitely-ttl` schema annotation sets a coarse default
+  freshness per field/resource, with a **per-value override** for values that carry their own expiry
+  (a signed URL's `?Expires=`). It feeds the cache and, for ephemeral assets, the relay's
+  re-derivation ("ephemeral: re-derive on access") — one story with the media-delivery work above.
 - **G4 · Reliability platform:** live-check cron, optional-field-selector drift alerts, fixture
   tooling (possibly its own package), the compliance suite.
 - **G5 continued:** JSDOM driver; production Playwright render path; per-selector CDP perf knob if
@@ -203,8 +218,12 @@ The scope decisions behind this plan (from the design interview):
 - **Runner is `@sitely/runtime`**, its own package — the shared core (harness now, server later).
 - **No build/manifest in v0**; in-memory `SiteDefinition`; `sitely test` runs TS in-process.
 - **Type-safety: authoring-side only**; consumer inference deferred (likely GraphQL).
+- **URL codec:** a standalone, `URLPattern`-Web-API-aligned `PathPattern` package (typed match +
+  `toUrl` + canonicalisation), published decoupled from sitely; **multi-path** (one canonical + alias
+  patterns), `toUrl` emits the canonical form.
+- **Pages carry a `render` discriminant** (`static`/`dynamic`); `prepare` exists only on `dynamic`.
 - **Schema:** JSON Schema **required**; TypeBox **recommended**; annotations as custom keywords;
-  assets as typed `{ url, type }` objects; validation via Ajv/TypeBox; Standard Schema demoted to escape hatch.
+  assets as typed `{ url, type, format?, mimeType? }` objects; validation via Ajv/TypeBox; Standard Schema demoted to escape hatch.
 - **Common interfaces (G2):** v1 headline; v0 keeps the seam open.
 - **Example scrapers:** Reddit, LinkedIn, HN. E-commerce → v1.
 

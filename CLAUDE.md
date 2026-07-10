@@ -38,19 +38,21 @@ in-process, **no server, no consumer**. Locked model:
 - **Resources are item-shaped standalone symbols** (`resource(name, schema, { key? })`) — never
   arrays. A page produces one or many via a page **builder** (`p.one`/`p.many`) that gives extract
   typed `ctx.params`. No "derived" resources (cut — pure transforms are helpers inside `extract`).
-- **Pages** = path + `validate` + optional async `prepare` (interaction) + `extract` (a builder
-  function) + `fixtures`. `defineSite({ id, displayName, origin, pages })` — single origin in v0.
+- **Pages** = path + `render` (`static`/`dynamic`, discriminated) + `validate` + optional async
+  `prepare` (dynamic-only interaction) + `extract` (a builder function) + `fixtures`.
+  `defineSite({ id, displayName, origin, pages })` — single origin in v0. The URL codec is a
+  standalone `URLPattern`-aligned `PathPattern` package (multi-path: one canonical + aliases).
 - **Extract leaves are field functions** (`() => value`), even constants — for per-field error
   isolation and drift telemetry.
 - **DOM is a sync read surface** (`PageDriver`/`PageElement`, `$`/`$$`) over a **settled snapshot**;
   async work (`launch → prepare → materialize`) happens first. Static (Cheerio) and dynamic
   (Playwright/CDP, with `prepare` interaction) both feed the same sync surface, so extraction code is
   backend-identical. JSDOM is v1.
-- **`@sitely/runtime`** is the driver-injected runner (the shared core the v1 server reuses). It owns
-  `ExtractContext`.
+- **`@sitely/runtime`** is the driver-injected runner (the shared core the v1 server reuses). It
+  builds `ExtractContext`, whose interface — with the read surface `PageElement`/`PageDriver`/`PageController` — is declared in 00 (the contracts root, so the package graph stays a DAG).
 - **JSON Schema is the required schema definition** (the boundary); **TypeBox is recommended** (guides
   + examples use it — `Static<>` gives field-level type-safety). Annotations are custom keywords
-  (`x-sitely-presence`, `x-sitely-asset`). An **asset is a typed `{ url, type }` object** in the data.
+  (`x-sitely-presence`, `x-sitely-asset`). An **asset is a typed `{ url, type, format?, mimeType? }` object** (media kind + optional transport/mime) in the data.
 - **`presence()` is a test-time gate, not a run gate** — `sitely test`/CI enforce it, `sitely dev`
   warns, `defineSite` only throws on run-blockers (path parse, invalid schema, bad key, invalid origin).
 - **No build/manifest in v0** — the in-memory `SiteDefinition` is the whole declaration; `sitely

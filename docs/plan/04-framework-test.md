@@ -41,11 +41,11 @@ Decision rule: inoperable without it → `defineSite`; a bar for shipping → `t
 
 ## Loading the package
 
-Before any check runs, the CLI imports the package's entry module and takes the `SiteDefinition`
-from its **default export** (`export default defineSite({ … })`). It validates that export *is* a
-`SiteDefinition` (a shape check) and fails clearly otherwise — `no-site-export` (nothing exported)
-or `not-a-site` (the default export isn't a `SiteDefinition`). A load-time precondition, not a
-per-fixture check.
+Before any check runs, the CLI locates the package's entry module (its `package.json` `"exports"` /
+`"main"`), imports it, and takes the `SiteDefinition` from the **default export**
+(`export default defineSite({ … })`). It validates that export *is* a `SiteDefinition` (a shape
+check) and fails clearly otherwise — `no-site-export` (nothing exported) or `not-a-site` (the default
+export isn't a `SiteDefinition`). A load-time precondition, not a per-fixture check.
 
 ## Fixtures on disk
 
@@ -73,19 +73,19 @@ Must-pass (a package isn't shippable until all pass); all run by `sitely test`. 
 |---|---|
 | `site-nonempty` | the site defines at least one page. |
 | `page-nonempty` | each page's `extract` binds at least one resource (no empty-binding page). |
-| `path-codec` | each page's `URLPattern` is a faithful, canonical codec — property-based (rule below). |
+| `path-codec` | each page's `PathPattern` is a faithful codec whose aliases all collapse to the canonical — property-based (rule below). |
 
 **Fixture checks**
 
 | Check | Asserts |
 |---|---|
 | `fixture-presence` | each page has ≥ 1 fixture, and at least one *happy* fixture extracts non-empty data (some output populated). |
-| `fixture-extraction` | for each happy fixture, `runExtractionOnDriver` returns `ok` and `data` deep-equals `<hash>.expected.json` (stable-serialized). |
-| `schema-conformance` | the same run is `ok`, not `validation-error` — output conforms to each resource's schema. (A failure where `fixture-extraction` matches means the committed `expected.json` is itself wrong.) |
+| `fixture-extraction` | for each happy fixture, `runExtractionOnDriver` returns `ok` and `data` deep-equals `<hash>.expected.json` (stable-serialized) — the *run reproduces the expected value*. |
+| `schema-conformance` | the committed `<hash>.expected.json`, taken as data, validates against each resource's schema. (Distinct from `fixture-extraction`: this catches a hand-edited or `--update`-stale `expected.json` that no longer conforms, which a deep-equal to a matching run wouldn't.) |
 | `determinism` | two runs on the same fixture yield byte-identical `data`. Catches `Date.now()`, `Math.random()`, iteration-order leakage. |
 | `error-path-coverage` | each `errorCase` fixture yields `rejected`; if the fixture pinned a reason (`errorCase: "captcha"`), the reason matches. |
 | `presence-coverage` | every optional/nullable field in a resource schema carries `x-sitely-presence` (rule below). |
-| `path-url-match` | each fixture's `parseUrl(meta.url)` deep-equals its declared `params` — the pattern matches the URL it was captured from. |
+| `path-url-match` | for each fixture, stripping the site `origin` from `meta.url` and running the remaining path through `parseUrl` deep-equals the declared `params` — the pattern matches the URL it was captured from. |
 
 Warning-only (surface in output, don't block):
 
@@ -115,40 +115,46 @@ blocks running.
 
 ### The `path-codec` check (property-based)
 
-`toUrl`/`parseUrl` must be a faithful, **canonical** codec ([00](./00-contracts)). Verified with
-property-based testing (**fast-check**), fixture-free — the generator comes from the pattern: each
-`:segment` → a non-empty, slash-free string, refined by the `paramsSchema` passed to `urlPattern`
-(a numeric `:id` → numeric strings). Two properties, over a fixed seed (so it stays deterministic):
+`PathPattern` must be a faithful codec, and `toUrl` must emit the **canonical** path
+([00](./00-contracts)). Verified with property-based testing (**fast-check**), fixture-free — the
+generator comes from the pattern: each `:segment` → a non-empty, slash-free string, refined by the
+`paramsSchema` passed to `urlPattern`. Over a fixed seed (so it stays deterministic):
 
-- **Round-trip** — ∀ params `p`: `parseUrl(toUrl(p))` deep-equals `p`.
-- **Canonical idempotence** — ∀ matching url `u`: `canon(canon(u)) === canon(u)`, where
-  `canon(u) = toUrl(parseUrl(u))` (`toUrl` emits the canonical form).
+- **Round-trip** — ∀ params `p`: `parseUrl(toUrl(p))` deep-equals `p` (canonical path → params).
+- **Alias-canonicalisation** — ∀ params `p` and each **alias** pattern: build the alias path from `p`,
+  and assert `parseUrl(aliasPath)` recovers `p` *and* `toUrl(parseUrl(aliasPath)) === toUrl(p)` — every
+  alias collapses to the one canonical path. This is where canonicalisation has teeth: the alias forms
+  are the genuinely *non-canonical* inputs (feeding only `toUrl(p)` back would be trivially canonical
+  and would test nothing).
 
 It also round-trips each fixture's *real* `params` — real values catch encoding cases a synthesized
 `"1"` won't. (A pattern that fails to *parse* is caught earlier, at `defineSite`, by `path-parse`;
-`path-codec` catches a constructible-but-lossy or non-canonical codec.)
+`path-codec` catches a lossy codec or a broken alias-collapse.)
 
 ## The CLI
 
 ```
-sitely test [--only <check>] [--update <fixture>] [--watch]
+sitely test [--only <check>] [--update <fixture>] [--watch] [--strict]
 sitely dev  [--only <page>] [--fixture <hash>]
 sitely snapshot <url> | --page <name> '<params-json>' [--overwrite]
 ```
 
 - **`sitely test`** — runs the checks and prints pass/fail per check with a diff on mismatch.
   `--update` rewrites a fixture's `expected.json` from current output (review the diff before
-  committing); `--watch` re-runs on file change. This is the pre-commit / CI gate.
+  committing); `--watch` re-runs on file change; `--strict` also fails on the warning-only checks.
+  This is the pre-commit / CI gate.
 - **`sitely dev`** — the tight loop: on every save, re-run each page's `validate` + `extract` against
   its fixtures and print a per-field diff (from the `ok` result's `fieldErrors`), a `~ field old →
   new` for changes, and `presence`/coverage **warnings** (never errors). No server, no live fetch —
   it reads `fixtures/` and runs in-process.
 - **`sitely snapshot`** — capture a fixture: resolve `(page, params)` from the URL (reverse-parse via
-  the registered patterns) or from `--page` + params, run [`02`'s `runExtraction` lifecycle](./02-runtime)
-  (`launch → prepare → materialize`) against the right backend — `PlaywrightBackend` for a page with
-  `prepare`, `StaticBackend` (fetch → `CheerioDriver`) otherwise — and write the settled `<hash>.html` + `<hash>.meta.json`. It
-  ignores robots.txt (an explicit author action, not server traffic). For a dynamic page, the capture
-  runs `prepare`, so the committed HTML is already post-interaction.
+  the registered patterns; if two patterns match, the canonical wins, then first-registered) or from
+  `--page` + params, run [`02`'s `runExtraction` lifecycle](./02-runtime) (`launch → prepare →
+  materialize`) against the right backend — `PlaywrightBackend` for a `render: "dynamic"` page,
+  `StaticBackend` (fetch → `CheerioDriver`) otherwise — and write the settled `<hash>.html` +
+  `<hash>.meta.json`. `--user-agent`/`--headers` thread through to `LaunchOptions` for auth-walled
+  sites. It ignores robots.txt (an explicit author action, not server traffic). For a dynamic page,
+  the capture runs `prepare`, so the committed HTML is already post-interaction.
 
 ## Invariants
 
@@ -167,12 +173,15 @@ sitely snapshot <url> | --page <name> '<params-json>' [--overwrite]
 
 - **A happy fixture has no `expected.json`** → `fixture-extraction` fails with a clear message
   (add one, or mark the fixture `errorCase`).
+- **A fresh `snapshot`** writes `<hash>.html` + `<hash>.meta.json` only; run `sitely test --update` (or
+  hand-author) to add the `<hash>.expected.json` a happy fixture needs before `fixture-extraction`
+  passes.
 - **An `errorCase` fixture whose run is `ok`** (validate accepted it) → `error-path-coverage` fails —
   `validate` is too permissive.
 - **`determinism` fails on one machine only** → almost always locale/timezone-dependent formatting;
   the check diffs the two runs to show the field.
-- **`snapshot` of a `prepare` page on a machine without a browser** → fails clearly (needs the
-  Playwright backend); static pages need no browser.
+- **`snapshot` of a `render: "dynamic"` page on a machine without a browser** → fails clearly (needs
+  the Playwright backend); static pages need no browser.
 - **`snapshot` hits an auth wall** (e.g. LinkedIn) → capture from a logged-in browser session; the
   harness doesn't manage credentials (framework auth is v1). The resulting committed HTML tests
   offline like any other fixture.
@@ -181,13 +190,16 @@ sitely snapshot <url> | --page <name> '<params-json>' [--overwrite]
 ## Acceptance criteria
 
 - **Each check fires correctly** against crafted cases: a mismatched `expected.json` fails
-  `fixture-extraction`; a schema-violating extraction fails `schema-conformance`; a `Date.now()` in a
-  field fails `determinism`; an `errorCase` fixture that `validate` accepts fails
-  `error-path-coverage`; an un-annotated optional field fails `presence-coverage`; a site with no
-  pages fails `site-nonempty`; a page with an empty `extract` fails `page-nonempty`; a lossy
-  `urlPattern` fails `path-codec`; a page with no fixture fails `fixture-presence`; a fixture whose
-  `meta.url` doesn't parse to its `params` fails `path-url-match`.
-- **Warnings don't change exit code**; `--strict` can opt into failing on them.
+  `fixture-extraction`; a hand-edited schema-invalid `expected.json` fails `schema-conformance` even
+  when it deep-equals the run; a `Date.now()` in a field fails `determinism`; an `errorCase` fixture
+  that `validate` accepts fails `error-path-coverage`; an un-annotated optional field fails
+  `presence-coverage`; a site with no pages fails `site-nonempty`; a page with an empty `extract`
+  fails `page-nonempty`; a lossy codec or an alias that doesn't collapse fails `path-codec`; a page
+  with no fixture fails `fixture-presence`; a fixture whose `meta.url` (origin stripped) doesn't parse
+  to its `params` fails `path-url-match`.
+- **The loader** rejects a package with no default export (`no-site-export`) and one whose default
+  export isn't a `SiteDefinition` (`not-a-site`), before any check runs.
+- **Warnings don't change exit code** unless `--strict`.
 - **`sitely dev`** re-runs on save and surfaces per-field diffs + presence warnings without ever
   exiting non-zero.
 - **`sitely snapshot`** produces a `<hash>.html` that `sitely test` can then extract from — including
