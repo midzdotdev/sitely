@@ -1,6 +1,6 @@
 # sitely
 
-> Turn websites into structured JSON.
+> Turn websites into structured JSON — and the web into something you can query.
 
 **Design Preview** — sitely has no implementation yet. The **implementation plan** under
 [`docs/plan/`](docs/plan/) is the source of truth: a v0-first, build-ordered set of component specs
@@ -22,6 +22,7 @@ package.json       Docs-site tooling
 Start with [`docs/plan/index.md`](docs/plan/index.md) — north-stars, the v0 scope, the build order,
 and the v1 outline. Then the component specs in dependency order:
 
+- [05 · URL codec](docs/plan/05-url-codec.md) — the standalone `URLCodec` package (built first)
 - [00 · contracts](docs/plan/00-contracts.md) — shared types, the JSON-Schema boundary
 - [01 · @sitely/page](docs/plan/01-page.md) — the DOM abstraction (sync read, async render)
 - [02 · @sitely/runtime](docs/plan/02-runtime.md) — the extraction runner

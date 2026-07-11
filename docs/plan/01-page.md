@@ -1,9 +1,9 @@
 # 01 · @sitely/page
 
-The DOM abstraction. It defines the **sync read surface** (`PageDriver` / `PageElement`) that
-extract code queries, the **async render lifecycle** (`RenderBackend` → `launch` → `prepare` →
-`materialize`) that produces a driver, and the **interaction surface** (`PageController`) authors
-drive in `prepare`. It ships two drivers — Cheerio (static) and Playwright/CDP (dynamic) — whose
+The DOM implementation. The **sync read surface** (`PageElement` / `PageDriver`) and the **interaction
+surface** (`PageController`) are *declared* in [`00`](./00-contracts); this package **implements**
+them and owns the **async render lifecycle** (`RenderBackend` → `launch` → `prepare` → `materialize`)
+that produces a driver. It ships two drivers — Cheerio (static) and Playwright/CDP (dynamic) — whose
 only job, beyond working, is to *prove the read surface is backend-neutral*: a scraper's `extract`
 must run byte-identically on either.
 
@@ -14,9 +14,8 @@ that DOM was produced. The async, backend-specific work (fetch, browser render, 
 behind `RenderBackend`; the moment `extract` runs, it sees a frozen, synchronously-queryable
 snapshot.
 
-**Dependencies.** [`00 · contracts`](./00-contracts) for nothing structural — this package is close
-to a leaf. `ExtractContext` ([03](./03-framework-dsl)) *wraps* a `PageDriver` and exposes `ctx.$` /
-`ctx.$$`; extract code never touches a driver directly.
+**Dependencies.** [`00 · contracts`](./00-contracts) — the `PageElement` / `PageDriver` /
+`PageController` interfaces this package implements. Nothing else structural; it's near a leaf.
 
 **Why two drivers in v0.** An interface with one implementation is never proven abstract. Cheerio
 (sync HTML parse) and Playwright/CDP (async browser render, then snapshot) are maximally different
@@ -24,52 +23,16 @@ backends; making both satisfy one sync `PageDriver` is the test that the seam ho
 
 ## Public interface
 
-### `PageElement` — a read-only node view (sync)
-
-```ts
-interface PageElement {
-    $(selector: string): PageElement | null;   // first matching descendant, or null
-    $$(selector: string): PageElement[];        // all matching descendants (real array — use .map/.filter)
-    text(): string;                             // trimmed text content; "" when empty
-    html(): string;                             // inner HTML
-    attr(name: string): string | null;          // null when absent; "" when present-but-empty
-    data(key: string): string | null;           // data-<key>, or null
-    classes(): string[];
-    exists(): boolean;
-    parent(): PageElement | null;
-    children(): PageElement[];
-    next(): PageElement | null;
-    prev(): PageElement | null;
-}
-```
-
-Read-only by design — no `.append`, no `.attr(name, value)`. Extract reads the DOM; it never
-mutates it, so a driver may back results with frozen or shared nodes. Descendant queries are
-`$` / `$$` (there is no `.find()`).
-
-### `PageDriver` — the document root (sync)
-
-```ts
-interface PageDriver {
-    $(selector: string): PageElement | null;
-    $$(selector: string): PageElement[];
-    title(): string;
-    html(): string;                              // full document HTML
-    readonly url: string;                        // final URL after redirects / render
-    readonly status: number;
-    readonly headers: Record<string, string>;
-}
-```
-
-The driver carries response metadata (`url`, `status`, `headers`) because extract sometimes needs
-it — relative-URL resolution, `Content-Language` branching, non-200 detection. All traversal starts
-at the driver and descends through `PageElement`; there is no parallel document object.
+The read/interaction interfaces (`PageElement`, `PageDriver`, `PageController`) live in
+[`00`](./00-contracts). This package adds the lifecycle, the null-object plumbing, and the drivers.
 
 ### `NULL_ELEMENT`
 
-A singleton `PageElement` returning safe defaults for every method (`""`, `null`, `[]`, `false`).
+A singleton `PageElement` returning safe defaults for every method (`""`, `null`, `[]`).
 Plumbing for drivers that compose elements internally — **not** the public idiom. Extract code uses
-`ctx.$("h1")?.text() ?? ""`; `$()` returns `null` for no-match, not `NULL_ELEMENT`.
+`ctx.$("h1")?.text() ?? ""`; `$()` returns `null` for no-match, not `NULL_ELEMENT`. (There is no
+public `exists()` — no publicly obtainable element could ever return `false`, since `$`/`$$` return
+`null`/`[]` for a miss; the `null` check *is* the existence check.)
 
 ### The render lifecycle
 
@@ -90,7 +53,7 @@ interface RenderSession {
 
 interface LaunchOptions {
     timeoutMs?: number;
-    userAgent?: string;
+    userAgent?: string;                          // threaded from snapshot/live callers via runExtraction's `launch` opt; needed for auth-walled sites
     headers?: Record<string, string>;
 }
 ```
@@ -99,31 +62,16 @@ The runner ([02](./02-runtime)) drives it:
 
 ```ts
 const session = await backend.launch(url);
-await pageDef.prepare?.(session.page);           // dynamic interaction; skipped for static pages
+await pageDef.prepare?.(session.page);           // dynamic interaction; the static arm has no `prepare`
 const driver = await session.materialize();      // frozen snapshot from here on
 // makeContext(driver, params) → validate(ctx) → extract(ctx)   ← all sync
 await session.dispose();
 ```
 
-### `PageController` — the interaction surface for `prepare`
-
-Async, browser-only. Authors use it to drive interaction-gated content into the DOM *before* the
-snapshot (expand an accordion, scroll a lazy section into view).
-
-```ts
-interface PageController {
-    click(selector: string): Promise<void>;
-    scrollTo(selector: string): Promise<void>;
-    scrollToBottom(): Promise<void>;
-    waitForSelector(selector: string, opts?: { timeoutMs?: number; state?: "attached" | "visible" }): Promise<void>;
-    waitForTimeout(ms: number): Promise<void>;
-    evaluate<T>(fn: (() => T) | string): Promise<T>;   // escape hatch: run JS in the page
-}
-```
-
-On a **static** backend, `session.page` methods throw `UnsupportedInteractionError`. A page that
-declares `prepare` therefore requires a dynamic backend; the runner refuses to run such a page on a
-static backend (it doesn't silently skip the interaction and extract an incomplete DOM).
+On a **static** backend, `session.page` methods throw `UnsupportedInteractionError` (declared in
+[00's error taxonomy](./00-contracts), `kind: "unsupported-interaction"`). A page can only declare
+`prepare` in its `render: "dynamic"` arm ([00](./00-contracts)), so a static page never interacts;
+the throw is belt-and-suspenders for a raw-data caller that wires a static backend to a dynamic page.
 
 ### `CheerioDriver` — the static default
 
@@ -135,9 +83,23 @@ class CheerioDriver implements PageDriver {
 ```
 
 Parses static HTML — what a plain fetch returns. Constructing it directly from a string is the most
-common site (the [test harness](./05-framework-test) wraps a fixture's HTML), so `status` defaults
-to `200`, `headers` to `{}`. `StaticBackend` wraps `fetch → new CheerioDriver(...)` for `snapshot`
-and future live paths; `materialize()` there is immediate (the HTML is already in hand).
+common site (the [test harness](./04-framework-test) wraps a fixture's HTML), so `status` defaults
+to `200`, `headers` to `{}`.
+
+### `StaticBackend` — the static render backend
+
+```ts
+class StaticBackend implements RenderBackend {
+    readonly kind = "static";
+    launch(url: string, opts?: LaunchOptions): Promise<RenderSession>;   // fetch(url) → wrap the body in a CheerioDriver
+    // session.materialize() returns that driver immediately (the HTML is already in hand);
+    // session.page throws UnsupportedInteractionError (no interaction on a static backend).
+}
+```
+
+`StaticBackend` wraps `fetch → new CheerioDriver(...)` for `snapshot` and future live paths;
+`materialize()` is immediate. Fixture tests skip it — they wrap committed HTML in a `CheerioDriver`
+and call `runExtractionOnDriver` directly.
 
 ### `PlaywrightDriver` / `PlaywrightBackend` — the dynamic proof
 
@@ -166,17 +128,20 @@ questions); the contract is only that the result is a conformant `PageDriver`.
    first (`$`) or all (`$$`).
 4. **`PageElement` is read-only.** No mutation methods exist.
 5. **`.text()` is `""` for an empty element; `.attr(x)` is `null` when absent, `""` when present and
-   empty.** Distinguish "missing element" from "present but empty" via `.exists()`.
-6. **Interaction requires a dynamic backend.** Any `PageController` call on a static session throws;
-   a `prepare`-declaring page can't run statically.
+   empty.** Distinguish a **missing** element (`$(...) === null`) from a **present-but-empty** one
+   (`.text() === ""`); the `null` check is the existence check.
+6. **Interaction requires a dynamic backend.** A `render: "dynamic"` page's `prepare` runs against a
+   dynamic backend; the static arm has no `prepare`, and any `PageController` call on a static session
+   throws.
 7. **One read contract, N backends.** Every `RenderBackend` produces a `PageDriver` that behaves
    identically for identical settled DOM — enforced by the conformance suite.
 
 ## Behaviour & edge cases
 
 - **Selector matches nothing** → `$` returns `null`, `$$` returns `[]`.
-- **Selector fails to parse** (`$("[[bad")`) → throws synchronously. A programmer error, not a
-  missing-element case.
+- **Selector fails to parse** (`$("[[bad")`) → throws synchronously. A programmer error; in `extract`
+  it's caught by per-field isolation (see [00](./00-contracts)), so on an optional field it degrades
+  to an absent field + a diagnostic rather than a crash.
 - **Malformed / truncated HTML** → best-effort parse (Cheerio's forgiving fix-up). Don't assume
   "parsed" means "complete"; check `status` / `headers` if it matters.
 - **Not HTML** (JSON, plain text) → wrapped in an implicit `<html><body>`; `$("body")?.text()`
@@ -184,8 +149,9 @@ questions); the contract is only that the result is a conformant `PageDriver`.
 - **`prepare` throws or a `waitForSelector` times out** → the session surfaces the failure; the
   runner turns it into a `RunnerResult` (`error`, or a `rejected` reason if the author threw a
   `ResponseRejection`). The DOM is not materialized.
-- **Redirect during `launch`** → `driver.url` reflects the final URL; the driver carries the
-  redirect's `status`.
+- **Redirect during `launch`** → `driver.url` reflects the final URL; `driver.status` is the **final
+  response's** status (a followed `301 → 200` reads as `200`), which is what every `validate` status
+  check depends on.
 - **Oversized DOM** → a size cap protects the process. The cap and its enforcement are a v1 server
   concern; v0 notes it but doesn't gate on it.
 - **`dispose()` not called** (crash mid-extract) → for the dynamic backend this leaks a browser
@@ -197,14 +163,17 @@ questions); the contract is only that the result is a conformant `PageDriver`.
   attrs, empty elements, `$` vs `$$`, `data`, `classes`, traversal — runs against **both**
   `CheerioDriver` and `PlaywrightDriver` on the same HTML and produces identical results. This is
   the criterion that says the seam holds; adding JSDOM later means running the same suite.
+- **`data()` is backend-neutral.** `data("user-id")` reads the attribute `data-user-id` verbatim on
+  both drivers — no camelCase mapping, no numeric/JSON coercion (Cheerio's `.data()` does both, so the
+  driver must not lean on it).
 - **Interaction path (deterministic, CI).** Against the [controlled dynamic test page](./index#test-inputs)
   (accordion + scroll-load): `launch → prepare (click to expand, `scrollToBottom`, `waitForSelector`)
   → materialize` yields a driver where the previously-absent content is now queryable. Proves the
   `prepare` phase in CI without a live/auth site.
 - **Static rejects interaction.** A `PageController` call on a `StaticBackend` session throws
-  `UnsupportedInteractionError`; the runner refuses a `prepare`-declaring page on a static backend.
-- **Edge-case table.** `.text()`/`.attr()`/`.exists()` behave per the invariants for
-  present/empty/absent; `$`/`$$` agree on the empty case.
+  `UnsupportedInteractionError`.
+- **Edge-case table.** `.text()`/`.attr()` behave per the invariants for present/empty/absent;
+  `$`/`$$` agree on the empty case.
 
 ## Open questions
 

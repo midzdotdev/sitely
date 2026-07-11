@@ -9,6 +9,12 @@
 
 ## North-star goals
 
+**The end state is a queryable web** — any website readable as a typed, reliable API, and common
+shapes queryable *across* sites as one. The five goals below compose into that: authoring (G1)
+supplies coverage, interfaces (G2) make it one queryable surface, GraphQL (G3) is that surface's
+client, reliability (G4) makes its answers trustworthy, and backend neutrality (G5) makes it
+affordable at web scale.
+
 The project's durable goals. v0 proves **G1** and **G5** and keeps seams open for the rest;
 everything else is v1+.
 
@@ -16,7 +22,8 @@ everything else is v1+.
   framework owns the piping.
 - **G2 · Cross-site interop by common interface.** A consumer asks for a *resource by interface* —
   "give me an `Article`" — and gets it from every site that implements it. Base interfaces are
-  **generated** (from schema.org) and **annotated** so the runtime can route interface requests.
+  **generated** (from schema.org) and **profiled** — tightened, presence-annotated — so a consumer
+  can rely on them and the runtime can route interface requests.
 - **G3 · Type-safe consumption.** Consumers get types with no hand-maintained duplication —
   leaning **GraphQL** (interface types = common resources; introspection supplies types).
 - **G4 · Reliability platform.** Tooling that keeps scrapers correct over time: fixture
@@ -32,7 +39,7 @@ serves static *and* dynamic (interaction-gated) sites — in-process, **no serve
 
 **Definition of done:** you author the three example scrapers below and a `sitely dev` /
 `sitely test` loop gives schema-validated, typed extraction from committed fixtures, with
-authoring mistakes (a `derivedFrom` to nowhere, an `extract` that doesn't match its schema)
+authoring mistakes (a field function whose return doesn't match its resource's schema, a `p.many` binding that returns a single object)
 caught at **compile time**. The proof is the *feel* of authoring plus the *correctness* of the
 output — across a clean static site and a brutal dynamic one.
 
@@ -72,11 +79,13 @@ deterministically — the interaction runs at *capture* time, not test time.
 
 ```mermaid
 flowchart TB
+    U["05 · url-codec<br/>standalone · built first"]
     C["00 · contracts<br/>types only"]
     Pg["01 · @sitely/page<br/>drivers"]
     Rt["02 · @sitely/runtime<br/>the runner"]
     Fw["03–04 · @sitely/framework<br/>DSL · schema · test · CLI"]
 
+    U --> C
     C --> Pg
     C --> Rt
     Pg --> Rt
@@ -86,16 +95,17 @@ flowchart TB
 
     classDef leaf fill:#2a4a3a,stroke:#a3be8c,color:#eceff4
     classDef mid fill:#3a2a4a,stroke:#b48ead,color:#eceff4
-    class C leaf
-    class Pg,Rt,Fw mid
+    class U leaf
+    class C,Pg,Rt,Fw mid
 ```
 
 | # | Spec | Package | Scope |
 |---|---|---|---|
-| 00 | [Contracts](./00-contracts) | *(shared types)* | `SiteDefinition` (v0 subset), driver interfaces, runner result, the JSON-Schema boundary, error taxonomy. |
-| 01 | @sitely/page | `@sitely/page` | Sync `PageDriver`/`PageElement` + Cheerio driver; Playwright/CDP driver + the `prepare` interaction API (opt-in so static-only users skip Chromium). JSDOM-ready, deferred. |
-| 02 | @sitely/runtime | `@sitely/runtime` | The runner: `launch → prepare → materialize → validate → extract → resolve field fns → validate schema`. Driver-injected. **Reused verbatim by the v1 server.** |
-| 03 | Framework — DSL | `@sitely/framework` | `defineSite().resource().page().build()`, `urlPattern`, `ExtractContext`, field functions, `ctx.lazy`, `presence`/`asset` helpers, authoring-side type-safety, minimal errors. |
+| 05 | [URL codec](./05-url-codec) | *(standalone)* | `URLCodec` — typed, reversible **path + query** patterns (`urlCodec`, `toUrl`/`fromUrl`, aliases, call-time `base`). **Built first** — spec file numbers are stable IDs, not build positions. |
+| 00 | [Contracts](./00-contracts) | *(shared types)* | `SiteDefinition`, the read-surface + context interfaces (`PageElement`/`PageDriver`/`PageController`/`ExtractContext`), `Interface`, the re-exported `URLCodec`, `RunnerResult`, the JSON-Schema boundary, error taxonomy. |
+| 01 | @sitely/page | `@sitely/page` | Implements the sync read surface (declared in 00) — Cheerio + Playwright/CDP drivers + the `prepare` interaction lifecycle (opt-in so static-only users skip Chromium). JSDOM-ready, deferred. |
+| 02 | @sitely/runtime | `@sitely/runtime` | The runner: `launch → prepare → materialize → validate → extract → resolve field fns → validate schema`. Driver-injected; builds `ExtractContext`; owns `validateExtraction`. **Reused verbatim by the v1 server.** |
+| 03 | Framework — DSL | `@sitely/framework` | `resource`, `page` (`p.one`/`p.many` builder, `render` discriminant), `defineSite`, `urlCodec` (re-exported from [05](./05-url-codec)), `defineInterface`, field functions, `presence`/`asset` helpers, authoring-side type-safety, minimal errors. |
 | 04 | Framework — test/CLI | `@sitely/framework` | In-process test harness (the v0 checks) + the `sitely` CLI (`test` · `dev` · `snapshot`). |
 
 ### Schema foundation
@@ -111,22 +121,30 @@ because JSON Schema *is* the canonical form.
 - **Validation:** Ajv or TypeBox's compiler over the JSON Schema — a net catching "the selector
   returned the wrong shape," and (v1) the source of the drift signal.
 - **Annotations = custom keywords:** `x-sitely-presence` (drift), `x-sitely-asset` (media),
-  later `x-sitely-implements` (interface identity). JSON Schema is purpose-built for this.
-- **Media ref = branded string,** not a new type: `{ type: "string", format: "uri",
-  "x-sitely-asset": "image" }`, produced by an `asset("image")` helper. Plain URL on the wire;
-  the keyword is metadata.
-- **Presence is mandatory** for optional/nullable fields (build fails otherwise) — the annotation
-  seeds G4's drift detection.
+  later `x-sitely-implements` (interface identity) and `x-sitely-ttl` (freshness). JSON Schema is
+  purpose-built for this.
+- **Asset = typed object,** not a bare string: `{ url, type, format?, mimeType? }` — `type` the media
+  kind, `format` the transport (`hls`/`dash` = manifest, `progressive` = file; **video/audio only**),
+  `mimeType` the content-type when the DOM exposes it. The `asset<K>(kind)` helper emits its closed
+  schema + `x-sitely-asset`; self-describing on the wire.
+- **Interfaces = named schema claims:** `Interface` (`{ kind, name, schema }`) reifies the G2 unit in
+  v0 — `defineInterface` mints partial parse contracts consumed by `ctx.jsonLd`; the v1 catalogue is
+  generated `Interface` values and `resource`'s v1 `implements` option takes the same type.
+- **Presence is required on optional/nullable fields** — but as a `sitely test`/CI gate, not a
+  run gate: `sitely dev` warns and `defineSite` never blocks. The annotation seeds G4's drift
+  detection.
 
 ### In scope
 
 - `@sitely/page`: the sync DOM interface + Cheerio and Playwright/CDP drivers + the `prepare`
   interaction API.
-- `@sitely/runtime`: the driver-injected runner.
-- `@sitely/framework`: the builder DSL, `urlPattern`, `ExtractContext` (`$`, `$$`, `jsonLd`,
-  `params`, `lazy`), field functions with per-field error isolation, `presence`/`asset` helpers,
-  the JSON-Schema validation boundary, authoring-side type-safety, a minimal error surface, the
-  test harness, and the CLI (`test`, `dev`, `snapshot`).
+- `@sitely/runtime`: the driver-injected runner + `ExtractContext` (`$`/`$$`, `jsonLd` — raw and
+  `Interface`-parsed, `params`, `url`/`status`/`headers`, `canonical`; the interface is declared in
+  00, built here) + `validateExtraction`.
+- `@sitely/framework`: the builder DSL, `urlCodec` (via the standalone codec, [05](./05-url-codec)),
+  `defineInterface`, field functions with per-field error isolation, `presence`/`asset` helpers, the
+  JSON-Schema validation boundary, authoring-side type-safety, a minimal error surface, the test
+  harness, and the CLI (`test`, `dev`, `snapshot`).
 - Three real example scrapers + their fixtures; hand-written unit fixtures; one controlled
   dynamic test page.
 
@@ -135,8 +153,8 @@ because JSON Schema *is* the canonical form.
 The entire server (`@sitely/server`, Postgres, Redis, cache, rate-limit, robots, auth, coalescing,
 retry) · the client SDK + consumer type inference (GraphQL) · the common-interface system
 (generated catalogue, `implements`, cross-site request-by-interface) · build/manifest/signing ·
-derived resources, pagination, locales/families, `checkResponse`, captcha detection, the
-`ResponseError` family, `normalizeUrl`, `ctx.fetch`, TTL · the JSDOM driver · the reliability
+pagination, locales/families, `checkResponse`, automatic captcha detection, retry disposition,
+`normalizeUrl`, `ctx.fetch`, TTL · the JSDOM driver · the reliability
 platform · target-site auth.
 
 ### Example scrapers
@@ -147,7 +165,7 @@ so controlled sandboxes buy nothing and hide the leaks real sites expose.)
 
 | Site | Stresses | Driver | Notes |
 |---|---|---|---|
-| **Hacker News** | Multi-resource-per-page (`story` + `comments`), static list | Cheerio | Clean static baseline |
+| **Hacker News** | Multi-resource-per-page (`story` + `comments`), static list, query-addressed pages (`/item?id=…`) | Cheerio | Clean static baseline |
 | **Reddit** | JS-render, scroll-to-load nested comments (`prepare`) | Playwright + `prepare` | Brutal dynamic |
 | **LinkedIn** | JS-render, scroll-to-reveal job description (`prepare`), auth-walled + hostile | Playwright + `prepare` | Fixture captured from a logged-in session; framework auth is v1 |
 
@@ -172,13 +190,37 @@ No general controlled-site corpus.
 
 By priority stack:
 
-- **G2 · Cross-site interop (marquee):** schema.org → **generated + annotated** JSON-Schema
-  interface catalogue; resources declare implemented interfaces (`x-sitely-implements`); consumers
-  **request a resource by interface and get it from every site that provides it.**
-- **G3 · Typed consumption:** the client — strong lean **GraphQL** (interface types = common
-  resources; introspection supplies types, likely dissolving heavy consumer-side TS generics).
+- **G2 · Cross-site interop (marquee):** schema.org → a **generated + profiled** JSON-Schema
+  interface catalogue — a set of `Interface` values (the v0 type). schema.org supplies **identity and
+  vocabulary** (the names and meanings sites already emit in JSON-LD); each catalogue entry is a
+  sitely **profile** of its type — a tiny required core, pinned types out of schema.org's unions,
+  explicit cardinality, and `x-sitely-presence` rates as the honesty layer for everything else.
+  (schema.org alone is deliberately permissive — SEO markup, not contracts; raw generation would
+  validate everything and promise nothing.) Profiles are semver'd contracts, generated **on demand**,
+  not all ~800 types. Resources declare implemented interfaces via `resource`'s `implements` option,
+  which stamps `x-sitely-implements` with the interface *name* — a **bare name means schema.org**; a
+  future non-schema.org vocabulary (e.g. FHIR) qualifies as a CURIE (`fhir:Patient`). Names are the
+  identity; the catalogue is authoritative for what a name means, so conformance is checked against
+  the **profile** — which makes it non-vacuous. Consumers **request a resource by interface and get
+  it from every site that provides it.**
+- **G3 · Typed consumption:** the client — strong lean **GraphQL**, the queryable web's surface
+  (interface types = common resources; sites = providers; introspection supplies types, likely
+  dissolving heavy consumer-side TS generics). Vocabulary-qualified interface names map into GraphQL
+  identifiers at this layer (colons aren't legal in GraphQL type names).
 - **Runtime:** `@sitely/server` — reuses the v0 `@sitely/runtime`; loads packages, fetches/renders,
   caches, rate-limits, robots, the seven-status wire envelope.
+- **Media delivery (the signed-URL problem):** many sites serve media — especially HLS/MPEG-DASH
+  manifests + their segments — via **signed URLs bound to IP + expiry**, so an extracted `url` is
+  useless to a remote consumer and dies within minutes. The answer is a **media relay over a
+  centralised static egress**: all sitely outbound routes through one stable IP (a NAT / egress
+  gateway), so any node can fetch IP-scoped assets; the relay proxies the asset — **rewriting HLS/DASH
+  manifests** so segment requests route through it too — and **re-derives** expired signed URLs on
+  demand. The extracted `url` is a *source reference*, not a durable link; the asset's `format` tag
+  tells the relay which need manifest-rewriting.
+- **Field/resource freshness (TTL):** an `x-sitely-ttl` schema annotation sets a coarse default
+  freshness per field/resource, with a **per-value override** for values that carry their own expiry
+  (a signed URL's `?Expires=`). It feeds the cache and, for ephemeral assets, the relay's
+  re-derivation ("ephemeral: re-derive on access") — one story with the media-delivery work above.
 - **G4 · Reliability platform:** live-check cron, optional-field-selector drift alerts, fixture
   tooling (possibly its own package), the compliance suite.
 - **G5 continued:** JSDOM driver; production Playwright render path; per-selector CDP perf knob if
@@ -202,9 +244,16 @@ The scope decisions behind this plan (from the design interview):
 - **Runner is `@sitely/runtime`**, its own package — the shared core (harness now, server later).
 - **No build/manifest in v0**; in-memory `SiteDefinition`; `sitely test` runs TS in-process.
 - **Type-safety: authoring-side only**; consumer inference deferred (likely GraphQL).
+- **URL codec:** a standalone `URLCodec` package ([05](./05-url-codec)) — `URLPattern`-aligned with
+  documented deviations: typed **path + query** params (query matched by name, undeclared noise
+  ignored), a `toUrl` inverse, the reversible-subset grammar only, origin as a call-time `base`;
+  **multi-path** (one canonical + alias patterns), `toUrl` emits the canonical form.
+- **Pages carry a `render` discriminant** (`static`/`dynamic`); `prepare` exists only on `dynamic`.
 - **Schema:** JSON Schema **required**; TypeBox **recommended**; annotations as custom keywords;
-  media-ref = branded string; validation via Ajv/TypeBox; Standard Schema demoted to escape hatch.
-- **Common interfaces (G2):** v1 headline; v0 keeps the seam open.
+  assets as typed `{ url, type, format?, mimeType? }` objects (`format` on video/audio only; closed
+  schemas); validation via Ajv/TypeBox, implemented in the runtime; Standard Schema demoted to escape hatch.
+- **Common interfaces (G2):** v1 headline; v0 reifies the seam as the `Interface` type
+  (`defineInterface`, consumed by `ctx.jsonLd`) — `implements` and the catalogue stay v1.
 - **Example scrapers:** Reddit, LinkedIn, HN. E-commerce → v1.
 
 ## The spec template
