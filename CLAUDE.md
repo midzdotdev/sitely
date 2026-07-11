@@ -4,7 +4,8 @@ Project-local instructions for Claude Code sessions in this repo.
 
 ## What this repo is
 
-sitely — turns websites into structured JSON through declarative TypeScript site packages.
+sitely — turns websites into structured JSON through declarative TypeScript site packages; the
+end-state goal is a **queryable web** (see the plan's north-stars).
 **Design Preview: no implementation yet.** The **implementation plan under `docs/plan/` is the
 source of truth** — a v0-first, build-ordered set of component specs plus a v1 outline. There is no
 `packages/`, `sites/`, or `scripts/`; don't scaffold code until the user explicitly says to start
@@ -73,8 +74,9 @@ in-process, **no server, no consumer**. Locked model:
 
 ## v1 — outline (see `docs/plan/index.md`)
 
-Cross-site interop by common interface (generated + annotated JSON-Schema catalogue; query a resource
-by interface across sites) · GraphQL client · `@sitely/server` (reuses the runtime) · reliability
+Cross-site interop by common interface (schema.org names + sitely-**profiled** JSON-Schema catalogue —
+tightened, presence-annotated; bare names = schema.org, CURIEs reserved for future vocabularies; query
+a resource by interface across sites) · GraphQL client · `@sitely/server` (reuses the runtime) · reliability
 platform (live-check cron, drift alerts, compliance suite) · JSDOM driver · build/manifest/signing ·
 HTML→Markdown prose helper · target-site auth.
 

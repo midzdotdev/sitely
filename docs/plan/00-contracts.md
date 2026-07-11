@@ -277,7 +277,10 @@ type Asset<K extends AssetType = AssetType> =
 // is site-local vocabulary — the discriminant makes `jsonLd(someResource)` a compile error.
 interface Interface<N extends string = string, T = unknown> {
     readonly kind: "interface";
-    readonly name: N;                          // the schema.org (or other vocabulary) type name — the identity
+    readonly name: N;                          // the type's identity. A BARE name means schema.org ("Article");
+                                               //   a future non-schema.org vocabulary qualifies as a CURIE
+                                               //   ("fhir:Patient") — the convention is reserved now so it
+                                               //   lands without breaking anything
     readonly schema: JsonSchema;               // canonical (v1 catalogue) or an author-written partial (v0)
     readonly __static?: T;                     // phantom: carries T for inference; absent at runtime
 }
@@ -299,9 +302,11 @@ type ValidateExtraction = (schema: JsonSchema, data: unknown) =>
 Custom keywords in v0: `x-sitely-asset` (media kind — present alongside the typed object, for
 discovery/interop) and `x-sitely-presence` (drift rate). They are **metadata on the schema object** —
 read by walking the JSON Schema, never part of `Static<>`. `x-sitely-implements` (interface identity —
-stamped on a resource's schema by the v1 `implements` option, carrying an `Interface`'s *name*; names
-are the identity, the catalogue is authoritative for what a name means) and `x-sitely-ttl`
-(field/resource freshness — see the [v1 outline](./index)) are v1.
+stamped on a resource's schema by the v1 `implements` option, carrying an `Interface`'s *name*: bare =
+schema.org, CURIE-qualified (`fhir:Patient`) for any future vocabulary; names are the identity, and
+the catalogue — a sitely **profile** of the schema.org type, see the [v1 outline](./index) — is
+authoritative for what a name means) and `x-sitely-ttl` (field/resource freshness — see the
+[v1 outline](./index)) are v1.
 
 **Media references are a source, not a delivery guarantee.** The `url` is the URL as extracted;
 whether a consumer can fetch it **direct** (public CDN), **proxied** (IP/session-scoped signed URLs),

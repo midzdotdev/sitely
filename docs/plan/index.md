@@ -9,6 +9,12 @@
 
 ## North-star goals
 
+**The end state is a queryable web** — any website readable as a typed, reliable API, and common
+shapes queryable *across* sites as one. The five goals below compose into that: authoring (G1)
+supplies coverage, interfaces (G2) make it one queryable surface, GraphQL (G3) is that surface's
+client, reliability (G4) makes its answers trustworthy, and backend neutrality (G5) makes it
+affordable at web scale.
+
 The project's durable goals. v0 proves **G1** and **G5** and keeps seams open for the rest;
 everything else is v1+.
 
@@ -16,7 +22,8 @@ everything else is v1+.
   framework owns the piping.
 - **G2 · Cross-site interop by common interface.** A consumer asks for a *resource by interface* —
   "give me an `Article`" — and gets it from every site that implements it. Base interfaces are
-  **generated** (from schema.org) and **annotated** so the runtime can route interface requests.
+  **generated** (from schema.org) and **profiled** — tightened, presence-annotated — so a consumer
+  can rely on them and the runtime can route interface requests.
 - **G3 · Type-safe consumption.** Consumers get types with no hand-maintained duplication —
   leaning **GraphQL** (interface types = common resources; introspection supplies types).
 - **G4 · Reliability platform.** Tooling that keeps scrapers correct over time: fixture
@@ -183,14 +190,23 @@ No general controlled-site corpus.
 
 By priority stack:
 
-- **G2 · Cross-site interop (marquee):** schema.org → **generated + annotated** JSON-Schema
-  interface catalogue — a set of `Interface` values (the v0 type); resources declare implemented
-  interfaces via `resource`'s `implements` option, which stamps `x-sitely-implements` with the
-  interface *name* (names are the identity; the catalogue is authoritative for what a name means, so
-  conformance is checked against the catalogue's canonical schema); consumers **request a resource by
-  interface and get it from every site that provides it.**
-- **G3 · Typed consumption:** the client — strong lean **GraphQL** (interface types = common
-  resources; introspection supplies types, likely dissolving heavy consumer-side TS generics).
+- **G2 · Cross-site interop (marquee):** schema.org → a **generated + profiled** JSON-Schema
+  interface catalogue — a set of `Interface` values (the v0 type). schema.org supplies **identity and
+  vocabulary** (the names and meanings sites already emit in JSON-LD); each catalogue entry is a
+  sitely **profile** of its type — a tiny required core, pinned types out of schema.org's unions,
+  explicit cardinality, and `x-sitely-presence` rates as the honesty layer for everything else.
+  (schema.org alone is deliberately permissive — SEO markup, not contracts; raw generation would
+  validate everything and promise nothing.) Profiles are semver'd contracts, generated **on demand**,
+  not all ~800 types. Resources declare implemented interfaces via `resource`'s `implements` option,
+  which stamps `x-sitely-implements` with the interface *name* — a **bare name means schema.org**; a
+  future non-schema.org vocabulary (e.g. FHIR) qualifies as a CURIE (`fhir:Patient`). Names are the
+  identity; the catalogue is authoritative for what a name means, so conformance is checked against
+  the **profile** — which makes it non-vacuous. Consumers **request a resource by interface and get
+  it from every site that provides it.**
+- **G3 · Typed consumption:** the client — strong lean **GraphQL**, the queryable web's surface
+  (interface types = common resources; sites = providers; introspection supplies types, likely
+  dissolving heavy consumer-side TS generics). Vocabulary-qualified interface names map into GraphQL
+  identifiers at this layer (colons aren't legal in GraphQL type names).
 - **Runtime:** `@sitely/server` — reuses the v0 `@sitely/runtime`; loads packages, fetches/renders,
   caches, rate-limits, robots, the seven-status wire envelope.
 - **Media delivery (the signed-URL problem):** many sites serve media — especially HLS/MPEG-DASH
