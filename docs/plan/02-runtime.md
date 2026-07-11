@@ -12,10 +12,11 @@ per-field isolation and schema validation. And, one layer up, drive the full lif
 (`launch → prepare → materialize`) for the live path.
 
 **Dependencies.** [`00 · contracts`](./00-contracts) (`SiteDefinition`, `PageDef`, `Binding`,
-`RunnerResult`, errors, `validateExtraction`, and the `ExtractContext` / `PageDriver` interfaces) and
-[`01 · @sitely/page`](./01-page) (`RenderBackend`, the drivers). It does **not** depend on the DSL
-([`03`](./03-framework-dsl)) — it takes a `SiteDefinition` (data) plus a backend and runs it. That's
-what lets both the test harness and the server sit *above* it.
+`RunnerResult`, errors, the `SchemaIssue`/`ValidationIssue` types, and the `ExtractContext` /
+`PageDriver` interfaces) and [`01 · @sitely/page`](./01-page) (`RenderBackend`, the drivers). It does
+**not** depend on the DSL ([`03`](./03-framework-dsl)) — it takes a `SiteDefinition` (data) plus a
+backend and runs it. That's what lets both the test harness and the server sit *above* it.
+`validateExtraction` is **implemented and exported here** (its types live in 00; see below).
 
 ## Public interface
 
@@ -23,8 +24,10 @@ what lets both the test harness and the server sit *above* it.
 
 The `ExtractContext` interface is declared in [`00`](./00-contracts); the runner **constructs** it
 from a materialized `PageDriver` + the request params. The read surface delegates to the driver
-(sync); `jsonLd` and the `canonical` computation are memoised internally (keyed by referential
-equality — the same private memo that used to be the public `lazy`).
+(sync); `jsonLd` and the `canonical` computation are memoised internally, keyed by referential
+equality (the `type` string / the `iface` reference) — there is no public `lazy`. The parsed
+`jsonLd(iface)` overload filters the normalized entities by `iface.name` and validates each against
+`iface.schema` via `validateExtraction` (below), dropping non-conforming entities.
 
 ```ts
 function makeContext(driver: PageDriver, params: Record<string, string>): ExtractContext;
@@ -45,7 +48,9 @@ function runExtractionOnDriver(
 // FULL LIFECYCLE — fetch/render → prepare → materialize → runExtractionOnDriver → dispose.
 // This is what `sitely snapshot`, live checks, and the v1 server call.
 function runExtraction(opts: {
-    backend: RenderBackend; site: SiteDefinition; pageName: string; params: Record<string, string>; policy?: RunPolicy;
+    backend: RenderBackend; site: SiteDefinition; pageName: string; params: Record<string, string>;
+    policy?: RunPolicy;
+    launch?: LaunchOptions;   // userAgent/headers for auth-walled capture; policy.launchTimeoutMs wins over launch.timeoutMs
 }): Promise<RunnerResult>;
 ```
 
@@ -53,6 +58,15 @@ The split is deliberate: **`runExtractionOnDriver` is the fixture/test path** (a
 the settled, post-interaction DOM, so re-running `prepare` would be wrong — and impossible on a
 static driver). **`runExtraction` is the live path.** Both share the core, so the harness and the
 server exercise identical extraction logic.
+
+### `validateExtraction` — implemented here
+
+The validation boundary's **types** (`SchemaIssue`, `ValidationIssue`, the function shape) live in
+[`00`](./00-contracts); the **implementation** (Ajv or TypeBox's compiler under the hood) lives in
+this package and is exported from it — the contracts root stays dependency-free (00's invariant 5),
+and `@sitely/framework` imports the function from here (it already depends on the runtime). It is
+synchronous (extract is on the hot path) and returns bare `SchemaIssue`s; the runner decorates them
+with the names only it knows.
 
 ## The execution algorithm
 
@@ -77,8 +91,9 @@ always returns a `RunnerResult` and never escapes as an exception** (its callers
        else `"error"`. All field-level throws are isolated identically in v0 — the class is a drift
        label, not different control flow.
    - **Schema-validate** the resolved item(s) against `binding.resource.schema` via `validateExtraction`
-     — `one` validates the object, `many` validates each element. Failures collect into
-     `ValidationIssue[]`.
+     — `one` validates the object, `many` validates each element. The bare `SchemaIssue`s it returns
+     are decorated by the runner into `ValidationIssue`s (`resource`, `output`, and the item `index`
+     for `many`) and collected.
 4. If any binding produced validation issues → `{ kind: "validation-error", issues, fieldErrors }` —
    `fieldErrors` carries the isolated diagnostics for fields that went absent (so a `MalformedDataError`
    that made a required field absent isn't lost behind a generic "required missing" issue).
@@ -87,13 +102,15 @@ always returns a `RunnerResult` and never escapes as an exception** (its callers
    fields) for `sitely dev` and v1 drift telemetry.
 
 `runExtraction` wraps the core with the lifecycle. It resolves `pageDef = site.pages[pageName]` (unknown
-name → `{ kind: "error", message: `unknown page: ${pageName}` }`), refuses a `prepare` page on a static
-backend (`backend.kind === "static"` → `{ kind: "error", message: "prepare requires a dynamic backend" }`),
-and builds `url = site.origin + pageDef.path.toUrl(params)`. Then:
+name → `{ kind: "error", message: `unknown page: ${pageName}` }`), refuses a **dynamic page** on a static
+backend (`pageDef.render === "dynamic" && backend.kind === "static"` → `{ kind: "error", message: "a
+dynamic page requires a dynamic backend" }` — with or without `prepare`: an unrendered DOM must never be
+extracted silently), and builds `url = pageDef.path.toUrl(params, { base: site.origin })`. Then:
 
 ```ts
-const s = await backend.launch(url, { timeoutMs: policy?.launchTimeoutMs });
+let s: RenderSession | undefined;
 try {
+    s = await backend.launch(url, { ...opts.launch, timeoutMs: policy?.launchTimeoutMs ?? opts.launch?.timeoutMs });
     if (pageDef.render === "dynamic") await withTimeout(pageDef.prepare?.(s.page), policy?.prepareTimeoutMs);
     const d = await s.materialize();
     return runExtractionOnDriver(d, pageDef, params);          // sync core — no await
@@ -102,9 +119,13 @@ try {
         ? { kind: "rejected", reason: e.reason }               // author threw a categorized reason
         : { kind: "error", message: String(e?.message ?? e) }; // launch / prepare / materialize failure
 } finally {
-    await s.dispose();                                         // always — even on throw / timeout
+    await s?.dispose().catch(() => {});                        // always; a rejecting dispose never clobbers the result
 }
 ```
+
+Like the core, **`runExtraction` never rejects**: `launch` sits *inside* the try, so every lifecycle
+failure — DNS, a `launchTimeoutMs` expiry, a `prepare` throw, a `materialize` failure — converts to a
+`RunnerResult`, and a failing `dispose` is swallowed rather than replacing the computed result.
 
 ## Invariants
 
@@ -128,8 +149,9 @@ try {
 - **`prepare` throws / `waitForSelector` times out** → `runExtraction` surfaces it as `error` (or
   `rejected` if the author threw a `ResponseRejection`); the DOM is never materialized; `dispose`
   runs.
-- **`prepare` present but backend is static** → `runExtraction` returns `error`
-  (`"prepare requires a dynamic backend"`) rather than silently extracting a half-built DOM.
+- **A `render: "dynamic"` page on a static backend** → `runExtraction` returns `error`
+  (`"a dynamic page requires a dynamic backend"`) rather than silently extracting an unrendered DOM —
+  with or without `prepare` (a dynamic page needs a browser render, not just interaction).
 - **A hung *sync* extractor can't be timed out.** Extraction is synchronous, so no wall-clock timeout
   interrupts it — a pathological field function (infinite loop, catastrophic-backtrack regex) is an
   author bug the `determinism` check and review catch, not a runtime guard; hard isolation is a v1
@@ -146,9 +168,12 @@ try {
 
 ## Acceptance criteria
 
-- **Harness parity.** `runExtractionOnDriver(new CheerioDriver({ html: fixture, url }), pageDef, params)`
-  produces the `RunnerResult` the [test harness](./04-framework-test) asserts against
-  `expected.json` — for `ok`, `rejected` (errorCase fixtures), and `validation-error` cases.
+- **Harness parity.** `runExtractionOnDriver(new CheerioDriver({ html, url: meta.url, status: meta.status,
+  headers: meta.headers }), pageDef, params)` — the driver built from a fixture's HTML **plus its
+  `meta.json`** (header names lowercased at capture), so a captured non-200 replays faithfully —
+  produces the `RunnerResult` the [test harness](./04-framework-test) asserts: `ok` with `data`
+  deep-equal to `expected.json` for happy fixtures, `rejected` (with the pinned reason) for errorCase
+  fixtures.
 - **Never throws.** A `validate` or extract-body that throws an arbitrary `Error` yields
   `{ kind: "error" }`, not an exception out of `runExtractionOnDriver`.
 - **Backend parity.** For the same settled HTML, `runExtractionOnDriver` with a `CheerioDriver` and
@@ -159,8 +184,8 @@ try {
   fields resolved.
 - **Rejection mapping.** `validate → false`, a thrown `ResponseRejection("captcha")`, and a `prepare`
   timeout map to `rejected: "wrong-page"`, `rejected: "captcha"`, and `error` respectively.
-- **Lifecycle discipline.** A `prepare` that throws still calls `dispose`; a static backend refuses a
-  `prepare` page.
+- **Lifecycle discipline.** A `prepare` that throws still calls `dispose`; a `launch` failure returns
+  `{ kind: "error" }` (no rejection escapes `runExtraction`); a static backend refuses a dynamic page.
 
 ## Open questions
 

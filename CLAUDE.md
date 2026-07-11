@@ -17,8 +17,8 @@ they were full-v1, present-tense, and full of logical inconsistencies. `docs/pla
 
 | Path | Contents |
 |---|---|
-| `docs/plan/` | **The implementation plan — source of truth.** `index.md` (north-stars, v0 scope, build order, v1 outline, locked decisions) + `00`–`04` component specs. |
-| `docs/.vitepress/` | VitePress config. **Not yet wired to `docs/plan/`** — nav/sidebar still reference deleted pages; wiring + `pnpm check` is the pending task. |
+| `docs/plan/` | **The implementation plan — source of truth.** `index.md` (north-stars, v0 scope, build order, v1 outline, locked decisions) + `00`–`05` component specs. |
+| `docs/.vitepress/` | VitePress config, wired to `docs/plan/`. Verify with `pnpm check` (build + Lychee link-check — Lychee is the real gate; `ignoreDeadLinks: true` makes the build alone insufficient). |
 | `planning/REBUILD-DECISIONS.md` | Reference: the conflict audit of the old docs + rulings that still inform v1 (server/client/manifest). |
 | `planning/api-redesign-summary.md` | Reference: earlier full-system design decisions (v1 context). Superseded by `docs/plan/` on conflict. |
 | `planning/archive/` | Superseded plans (old doc-amend + constitution plans). Historical only. |
@@ -26,9 +26,10 @@ they were full-v1, present-tense, and full of logical inconsistencies. `docs/pla
 
 ## The plan
 
-Read `docs/plan/index.md` first. Build order: **00 contracts → 01 @sitely/page → 02 @sitely/runtime
-→ 03 framework/DSL → 04 framework/test**. Each spec follows a fixed template: Purpose & deps ·
-Public interface · Invariants · Behaviour & edge cases · Acceptance criteria · Open questions.
+Read `docs/plan/index.md` first. Build order: **05 URL codec (standalone, built first) → 00 contracts
+→ 01 @sitely/page → 02 @sitely/runtime → 03 framework/DSL → 04 framework/test** — spec file numbers
+are stable IDs, not build positions. Each spec follows a fixed template: Purpose & deps · Public
+interface · Invariants · Behaviour & edge cases · Acceptance criteria · Open questions.
 
 ## v0 — the proof of concept
 
@@ -38,10 +39,13 @@ in-process, **no server, no consumer**. Locked model:
 - **Resources are item-shaped standalone symbols** (`resource(name, schema, { key? })`) — never
   arrays. A page produces one or many via a page **builder** (`p.one`/`p.many`) that gives extract
   typed `ctx.params`. No "derived" resources (cut — pure transforms are helpers inside `extract`).
-- **Pages** = path + `render` (`static`/`dynamic`, discriminated) + `validate` + optional async
-  `prepare` (dynamic-only interaction) + `extract` (a builder function) + `fixtures`.
+- **Pages** = path + `render` (`static`/`dynamic`, discriminated; the static arm's `prepare?: never`
+  makes `prepare` a compile error even with `render` omitted) + `validate` + optional async `prepare`
+  (dynamic-only interaction) + `extract` (a builder function) + `fixtures`.
   `defineSite({ id, displayName, origin, pages })` — single origin in v0. The URL codec is a
-  standalone `URLPattern`-aligned `PathPattern` package (multi-path: one canonical + aliases).
+  standalone **`URLCodec`** package (`05-url-codec.md`, built first): typed **path + query** patterns
+  (`urlCodec("/item?id=:id")`), `toUrl`/`fromUrl` with origin as a call-time `base`, multi-path (one
+  canonical + aliases), documented `URLPattern` deviations.
 - **Extract leaves are field functions** (`() => value`), even constants — for per-field error
   isolation and drift telemetry.
 - **DOM is a sync read surface** (`PageDriver`/`PageElement`, `$`/`$$`) over a **settled snapshot**;
@@ -49,16 +53,22 @@ in-process, **no server, no consumer**. Locked model:
   (Playwright/CDP, with `prepare` interaction) both feed the same sync surface, so extraction code is
   backend-identical. JSDOM is v1.
 - **`@sitely/runtime`** is the driver-injected runner (the shared core the v1 server reuses). It
-  builds `ExtractContext`, whose interface — with the read surface `PageElement`/`PageDriver`/`PageController` — is declared in 00 (the contracts root, so the package graph stays a DAG).
+  builds `ExtractContext`, whose interface — with the read surface `PageElement`/`PageDriver`/`PageController` — is declared in 00 (the contracts root, so the package graph stays a DAG:
+  `url-codec ← contracts ← page ← runtime ← framework`). It also implements `validateExtraction`
+  (types in 00; no validator dependency in contracts).
 - **JSON Schema is the required schema definition** (the boundary); **TypeBox is recommended** (guides
   + examples use it — `Static<>` gives field-level type-safety). Annotations are custom keywords
-  (`x-sitely-presence`, `x-sitely-asset`). An **asset is a typed `{ url, type, format?, mimeType? }` object** (media kind + optional transport/mime) in the data.
+  (`x-sitely-presence`, `x-sitely-asset`). An **asset is a typed `{ url, type, format?, mimeType? }` object** (media kind + optional transport/mime; `format` on video/audio only; closed schemas). An
+  **`Interface` is a named schema claim** (`{ kind: "interface", name, schema }`, minted by
+  `defineInterface`) — `ctx.jsonLd(iface)` parses matching JSON-LD embeds against it (typed, validated,
+  non-conforming dropped); the raw `ctx.jsonLd(type?)` reader stays `Record<string, unknown>[]`.
 - **`presence()` is a test-time gate, not a run gate** — `sitely test`/CI enforce it, `sitely dev`
   warns, `defineSite` only throws on run-blockers (path parse, invalid schema, bad key, invalid origin).
 - **No build/manifest in v0** — the in-memory `SiteDefinition` is the whole declaration; `sitely
   test` runs TS in-process. The **`sitely test` checks** are definition-level (`site-nonempty`,
-  `page-nonempty`, `path-codec`) and fixture-level (`fixture-presence`, `fixture-extraction`,
-  `schema-conformance`, `determinism`, `error-path-coverage`, `presence-coverage`, `path-url-match`).
+  `page-nonempty`, `path-codec`, `resource-name-unique`) and fixture-level (`fixture-presence`,
+  `fixture-extraction`, `schema-conformance`, `determinism`, `error-path-coverage`,
+  `presence-coverage`, `path-url-match`).
 - **Example scrapers:** Reddit, LinkedIn, HN (real, hard, dynamic-heavy). E-commerce is v1.
 
 ## v1 — outline (see `docs/plan/index.md`)
@@ -81,6 +91,9 @@ HTML→Markdown prose helper · target-site auth.
 
 ## Pending
 
-`docs/.vitepress/config.mts` still points at the deleted pages. The next task is to **wire the
-nav/sidebar to `docs/plan/`, set the site home, and run `pnpm check`** (VitePress build + Lychee
-link-check) until green.
+The plan is written, reviewed (four consolidated review passes), and wired into VitePress. v0
+implementation has **not** started. When it does, begin with the **type-system spike** flagged in
+`03-framework-dsl.md`'s open questions — a types-only `.d.ts` + type-test pass over the inference
+chain (builder `const E` capture, `FieldFns<Static<schema>>`, `ExtractParams` over path+query,
+`Page<E>` erasure), using the Hacker News site definition as its test case — and the codec
+implementation (05), in that order.

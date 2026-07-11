@@ -21,8 +21,10 @@ Define the contracts that cross v0 boundaries:
 This spec **declares** every cross-boundary interface; the others **implement** them —
 [`@sitely/page`](./01-page) implements the drivers/backends, [the runtime](./02-runtime) constructs
 `ExtractContext` (via `makeContext`) and runs the extraction, the [DSL](./03-framework-dsl) provides
-the authoring factories. Because the shared interfaces all live here, the package graph is a clean
-DAG (`contracts ← page ← runtime ← framework`) with no back-edges — this is the true dependency root.
+the authoring factories. The one type declared elsewhere is `URLCodec`: it belongs to the
+[standalone codec package](./05-url-codec) and this spec **re-exports** it. The package graph is a
+clean DAG (`url-codec ← contracts ← page ← runtime ← framework`) with no back-edges — the codec is
+the true dependency root; contracts is the sitely root.
 
 ## Public interface
 
@@ -37,7 +39,9 @@ via a builder (see Pages).
 interface Resource<Name extends string = string, T = unknown> {
     readonly name: Name;
     readonly schema: JsonSchema;               // an ITEM schema — never T[]
-    readonly key?: keyof T & string;           // identity field, for addressing a single item (v1)
+    readonly key?: string;                     // identity field, for addressing a single item (v1). Typed as
+                                               //   `keyof Static<S> & string` at the 03 factory; here it is plain
+                                               //   `string` because with T = unknown, `keyof T & string` is `never`
 }
 
 // FieldFns — every field has a SYNCHRONOUS resolver, present even for optional fields (`-?` strips
@@ -72,7 +76,6 @@ interface PageElement {
     attr(name: string): string | null;          // null when absent; "" when present-but-empty
     data(key: string): string | null;           // reads attribute data-<key> verbatim; no case-mapping, no coercion
     classes(): string[];
-    exists(): boolean;
     parent(): PageElement | null;
     children(): PageElement[];
     next(): PageElement | null;
@@ -120,36 +123,55 @@ Declared here; the runtime builds it (`makeContext`, [02](./02-runtime)) from a 
 interface ExtractContext<TParams extends Record<string, string> = Record<string, string>> {
     $(selector: string): PageElement | null;      // delegates to the driver
     $$(selector: string): PageElement[];
-    jsonLd(type?: string): Record<string, unknown>[];   // parsed <script type="application/ld+json">, filtered by @type; malformed blocks skipped
+    jsonLd(type?: string): Record<string, unknown>[];   // RAW: normalized JSON-LD entities, filtered by @type (rules below)
+    jsonLd<T>(iface: Interface<string, T>): T[];        // PARSED: entities matching iface.name that VALIDATE against iface.schema
     params: TParams;
     url: string;
     status: number;
     headers: Record<string, string>;
     canonical: string | null;                     // href of the first <link rel="canonical">, verbatim; null if absent
     // No public `lazy` — the runtime memoises jsonLd (and the canonical computation) internally,
-    // keyed by referential equality. `fetch(url, opts)` and `locale` are v1.
+    // keyed by referential equality (the `type` string / the `iface` reference). `fetch` and `locale` are v1.
 }
 ```
 
+**`jsonLd` normalization.** The raw reader collects every `<script type="application/ld+json">` in
+document order, `JSON.parse`s each (malformed blocks are skipped), and normalizes to a flat entity
+list: a top-level array contributes its elements in order; an object with a top-level `@graph` array
+contributes the graph entries (the wrapper is dropped); any other object contributes itself — applied
+once, no recursive descent (entities nested inside properties are not lifted). `jsonLd()` returns the
+whole list; `jsonLd("JobPosting")` returns entities whose `@type` equals the string **or is an array
+containing it** — exact and case-sensitive, with no `@context` expansion (a pragmatic reader, not a
+JSON-LD processor: `"Article"` does not match `@type: "schema:Article"`). The **parsed overload**
+takes an [`Interface`](#the-json-schema-boundary) and returns only the entities matching `iface.name`
+that validate against `iface.schema` (via the runtime's `validateExtraction`); non-conforming entities
+are **dropped**, so junk embeds never poison the good one — and if the entity you need is gone, the
+field function reading it throws `MissingDataError` and the diagnostics say so.
+
 ### Pages — the extraction unit
 
-A page is a path pattern plus how to validate, (optionally) interact, and extract. `prepare` exists
-**only** on a dynamic page — a discriminated union on `render` makes a static page unable to declare
-it (a compile error, not just a runtime guard). Its `extract` is a map of **local output name →
+A page is a URL codec plus how to validate, (optionally) interact, and extract. `prepare` exists
+**only** on a dynamic page — a discriminated union on `render`, with an explicit `prepare?: never` in
+the static arm, makes a static page unable to declare it (a compile error, not just a runtime guard).
+The `never` is load-bearing: with `render` *omitted* (the static default), a literal carrying
+`prepare` is still assignable to the static arm under excess-property rules — `prepare` is a known
+key of the dynamic constituent, so only `prepare?: never` turns the omitted-discriminant case into
+the promised compile error (compiler-verified). Its `extract` is a map of **local output name →
 `Binding`**; the authoring form is a builder `(p) => map` (see [03](./03-framework-dsl)).
 
 ```ts
 type PageDef =
     | {                                                 // static (default): fetch, no interaction phase
           render?: "static";
-          path: PathPattern;
+          path: URLCodec;
           validate: (ctx: ExtractContext) => boolean;   // false ≡ ResponseRejection("wrong-page")
+          prepare?: never;                              // load-bearing: keeps `prepare` a compile error even with `render` omitted
           extract: Record<string, Binding>;             // resolved: local output name → binding
           fixtures: FixtureSpec[];
       }
     | {                                                 // dynamic: browser render; `prepare` allowed
           render: "dynamic";
-          path: PathPattern;
+          path: URLCodec;
           validate: (ctx: ExtractContext) => boolean;
           prepare?: (page: PageController) => Promise<void>;   // settle interaction-gated content pre-snapshot
           extract: Record<string, Binding>;
@@ -163,7 +185,8 @@ interface FixtureSpec<TParams extends Record<string, string> = Record<string, st
 ```
 
 A dynamic page needing no interaction just omits `prepare` (still rendered). A static page **cannot**
-carry `prepare`; the runtime's static-guard is then belt-and-suspenders for the raw-data path.
+carry `prepare` (`prepare?: never`); separately, the runtime refuses to run any `render: "dynamic"`
+page on a static backend (see [02](./02-runtime)) — belt-and-suspenders for the raw-data path.
 
 ### Site definition
 
@@ -181,32 +204,46 @@ interface SiteDefinition {
 }
 ```
 
-### Path pattern
+### URL codec
 
-The URL codec is a **standalone package** — a typed, [`URLPattern`-Web-API](https://developer.mozilla.org/en-US/docs/Web/API/URL_Pattern_API)-aligned
-pattern with the inverse (`toUrl`) added — decoupled from sitely and depended on by it. Named
-`PathPattern` to avoid shadowing the platform `URLPattern` global.
+The URL codec is a **standalone package** — spec'd in [05](./05-url-codec), built first, decoupled
+from sitely and depended on by it. It is aligned with the
+[`URLPattern` Web API](https://developer.mozilla.org/en-US/docs/Web/API/URL_Pattern_API) where
+alignment helps and deviates deliberately where it doesn't — every deviation is documented with its
+reasoning in 05. This spec **re-exports** the codec's `URLCodec` type; the summary below is normative
+for how sitely *uses* it.
 
-A page may match **multiple** pathnames that converge on one canonical (aliases, short/legacy forms).
-`parseUrl` tries the canonical then each alias (first match wins); `toUrl` always emits the
-**canonical** path. So `toUrl(parseUrl(path))` collapses any alias to the canonical form — the v1
-cache key. All patterns must expose the same `TParams` (enforced at construction).
+A codec is constructed from **paths only**; origins arrive at call time as `base`, which is what
+keeps one codec valid for any origin (the runner passes `site.origin`). A page may match **multiple**
+patterns that converge on one canonical (aliases, short/legacy forms): `fromUrl` tries the canonical
+then each alias (first match wins); `toUrl` always emits the **canonical** form. So
+`toUrl(fromUrl(url))` collapses any alias to the canonical — the v1 cache key. All patterns must
+expose the same `TParams` (enforced at construction — a mismatch throws at `urlCodec(…)`).
 
 ```ts
-interface PathPattern<TParams extends Record<string, string> = Record<string, string>> {
-    readonly canonical: string;               // the canonical pattern; toUrl builds from this
-    readonly aliases: readonly string[];      // extra match-only patterns converging on canonical (may be empty)
-    toUrl(params: TParams): string;            // the canonical PATH (relative to origin); the runner prepends origin
-    parseUrl(path: string): TParams | null;    // tries canonical then aliases; input is an origin-relative path
+interface URLCodec<TParams extends Record<string, string> = Record<string, string>> {
+    readonly canonical: string;                // the canonical pattern; toUrl builds from this
+    readonly aliases: readonly string[];       // extra match-only patterns converging on canonical (may be empty)
+    readonly paramsSchema?: Readonly<Partial<Record<keyof TParams, JsonSchema>>>;   // per-param metadata; doc/generation only, no match-time
+                                                                                    //   enforcement in v0. 05 spells the value type
+                                                                                    //   Record<string, unknown> — identical to JsonSchema
+                                                                                    //   (the codec is dependency-free)
+    toUrl(params: TParams, opts?: { base?: string | URL }): string;
+    // without base → the root-relative canonical path(+query), leading "/"; with base → an absolute URL on base's origin
+    fromUrl(url: string | URL, opts?: { base?: string | URL }): TParams | null;
+    // canonical then aliases, first match wins; matches the path + DECLARED query params — undeclared
+    // query params and fragments are ignored; absolute input + base → origins must be equal, else null
 }
 ```
 
-`parseUrl` takes an origin-relative **path** — the runner/harness strip a full URL's origin before
-calling it. **Grammar:** the reversible subset of the Web API — named `:segment` and optional
-`:segment?` — is fully typed *and* `toUrl`-able; wildcards / `(regex)` groups may *match* but aren't
-part of the typed/buildable v0 surface. The round-trip and alias-canonicalisation are verified by
-[`04`'s `path-codec` check](./04-framework-test). This URL normal form is distinct from
-`ctx.canonical` (a page's `<link rel="canonical">`).
+**Grammar (v0 — the reversible subset):** literal segments, named `:param`, optional `:param?`, and a
+query tail of named/optional/literal pairs (`/item?id=:id`, `/search?type=job&q=:q`). Every pattern —
+canonical *and* alias — is fully typed and `toUrl`-able; wildcards and `(regex)` groups are **rejected
+at construction** (they cannot round-trip, and their param exposure breaks the same-params rule).
+Query params match **by name, order-insensitive** — the utm-noise answer:
+`fromUrl("/item?id=1&utm_source=x")` still recovers `{ id: "1" }`. The round-trip, alias-collapse,
+and noise-immunity properties are verified by [`04`'s `path-codec` check](./04-framework-test). This
+URL normal form is distinct from `ctx.canonical` (a page's `<link rel="canonical">`).
 
 ### The JSON-Schema boundary
 
@@ -221,36 +258,50 @@ type JsonSchema = Record<string, unknown>;   // a JSON Schema (draft 2020-12) ob
 type AssetType   = "image" | "video" | "audio" | "document";   // the media KIND
 type MediaFormat = "hls" | "dash" | "progressive";             // transport: "hls"/"dash" = manifest, "progressive" = direct file
 
-interface Asset {
-    url: string;             // the SOURCE url as found — not guaranteed durable or publicly fetchable (see delivery note)
-    type: AssetType;
-    format?: MediaFormat;    // optional; URL-derivable (.m3u8 → hls, .mpd → dash, else progressive)
-    mimeType?: string;       // optional; the content-type when the DOM exposes it (e.g. <source type>), else absent
+// GENERIC so the literal kind survives: Asset<"image"> = { url: string; type: "image"; mimeType?: string }.
+// `format` exists only where transport is meaningful (video/audio): { type: "image", format: "hls" }
+// is a compile error AND a validation failure — asset schemas are closed (additionalProperties: false).
+type Asset<K extends AssetType = AssetType> =
+    K extends "video" | "audio"
+        ? { url: string; type: K; format?: MediaFormat; mimeType?: string }
+        : { url: string; type: K; mimeType?: string };
+// url: the SOURCE url as found — not guaranteed durable or publicly fetchable (see delivery note).
+// format: URL-derivable (.m3u8 → hls, .mpd → dash, else progressive); mimeType: only when the DOM exposes it.
+// The `asset(kind)` schema helper and `asset.<kind>(url, opts?)` value helpers are TypeBox-typed
+// factories and live in the DSL ([03](./03-framework-dsl)) — not in contracts (invariant 5).
+
+// An Interface is a NAMED SCHEMA CLAIM — "data of type `name`, shaped like `schema`". It reifies the
+// G2 interop unit in v0: ctx.jsonLd's parsed overload consumes Interface values today; in v1 the
+// generated catalogue IS a set of Interface values and `resource`'s `implements` option takes them.
+// The `kind` discriminant is load-bearing: a Resource is also structurally name+schema, but its name
+// is site-local vocabulary — the discriminant makes `jsonLd(someResource)` a compile error.
+interface Interface<N extends string = string, T = unknown> {
+    readonly kind: "interface";
+    readonly name: N;                          // the schema.org (or other vocabulary) type name — the identity
+    readonly schema: JsonSchema;               // canonical (v1 catalogue) or an author-written partial (v0)
+    readonly __static?: T;                     // phantom: carries T for inference; absent at runtime
 }
+// The `defineInterface(name, schema)` factory lives in the DSL ([03](./03-framework-dsl)), as does
+// `presence(schema, rate)` (drift annotation; rate a number literal in [0,1], type-level-guarded).
 
-// `asset(kind)` is the SCHEMA helper — GENERIC so `Static<>` recovers the literal `type`:
-function asset<K extends AssetType>(kind: K):
-    TObject<{ url: TString; type: TLiteral<K>; format: TOptional<TUnion</*MediaFormat*/>>; mimeType: TOptional<TString> }>;
-//   → object schema + "x-sitely-asset": kind ; Static<asset("image")> = { url: string; type: "image"; format?: MediaFormat; mimeType?: string }
-// `asset.<kind>(url, opts?)` is the VALUE helper used in a field function:
-//   asset.image(url)                        → { url, type: "image" }
-//   asset.video(url, { format: "hls" })     → { url, type: "video", format: "hls" }
-
-// `presence` wraps an optional/nullable field's schema with its expected-present rate (0..1):
-function presence<S extends TSchema>(schema: S, rate: number): S;   // + "x-sitely-presence": rate
-
-// The validation boundary — a small standalone module (Ajv or TypeBox's compiler under the hood)
-// that both @sitely/runtime and @sitely/framework import, so the runtime validates without the DSL:
-interface ValidationIssue { resource: string; output?: string; path: string; message: string }
-function validateExtraction(schema: JsonSchema, data: unknown):
+// The validation boundary. The TYPES live here; the IMPLEMENTATION lives in @sitely/runtime
+// ([02](./02-runtime)) — an Ajv/TypeBox-compiler dependency in the contracts root would hand every
+// package a validator (invariant 5). @sitely/framework imports the function from the runtime.
+interface SchemaIssue     { path: string; message: string }   // path: a JSON Pointer relative to the validated item
+interface ValidationIssue { resource: string; output?: string; index?: number; path: string; message: string }
+// validateExtraction returns bare SchemaIssues — it knows only (schema, data). The RUNNER decorates
+// them into ValidationIssues with the resource/output names (and item index for `many`), which only it knows:
+type ValidateExtraction = (schema: JsonSchema, data: unknown) =>
     | { ok: true }
-    | { ok: false; issues: ValidationIssue[] };
+    | { ok: false; issues: SchemaIssue[] };
 ```
 
 Custom keywords in v0: `x-sitely-asset` (media kind — present alongside the typed object, for
 discovery/interop) and `x-sitely-presence` (drift rate). They are **metadata on the schema object** —
-read by walking the JSON Schema, never part of `Static<>`. `x-sitely-implements` (interface identity)
-and `x-sitely-ttl` (field/resource freshness — see the [v1 outline](./index)) are v1.
+read by walking the JSON Schema, never part of `Static<>`. `x-sitely-implements` (interface identity —
+stamped on a resource's schema by the v1 `implements` option, carrying an `Interface`'s *name*; names
+are the identity, the catalogue is authoritative for what a name means) and `x-sitely-ttl`
+(field/resource freshness — see the [v1 outline](./index)) are v1.
 
 **Media references are a source, not a delivery guarantee.** The `url` is the URL as extracted;
 whether a consumer can fetch it **direct** (public CDN), **proxied** (IP/session-scoped signed URLs),
@@ -296,8 +347,13 @@ class ExtractionError    extends FrameworkError { readonly kind: "extraction" | 
 class MissingDataError   extends ExtractionError { readonly kind = "missing-data";   readonly field: string; readonly detail: string; constructor(opts: { field: string; detail: string }) }
 class MalformedDataError extends ExtractionError { readonly kind = "malformed-data"; readonly field: string; readonly detail: string; constructor(opts: { field: string; detail: string }) }
 
-// Schema layer — extracted data doesn't fit the schema. The runner throws this; authors don't.
-class ValidationError    extends FrameworkError { readonly kind = "validation" }
+// Driver layer — a capability the backend doesn't have. Thrown by @sitely/page's static session when
+// any PageController method is called (see 01); the runner surfaces it as { kind: "error" }.
+class UnsupportedInteractionError extends FrameworkError { readonly kind = "unsupported-interaction" }
+
+// Schema layer — extracted data that doesn't fit its schema is NOT a throwable: it surfaces as the
+// `validation-error` RESULT variant (the runner never throws). Authoring-time definition errors throw
+// `SiteDefinitionError` from `defineSite` — declared in the DSL ([03](./03-framework-dsl)), same pattern.
 ```
 
 **Disposition (retryable? after how long?) is a v1 mapping.** Retry only acts on a live fetch, which
@@ -309,7 +365,8 @@ maps `RejectionReason → retry disposition` where fetching actually runs.
 1. **A resource is an item shape — never an array.** Collections are cardinality-`many`, declared per
    page via `p.many`. The resource is the interop unit a consumer queries by.
 2. **No cycle.** Resources and pages are standalone symbols, and every cross-boundary interface is
-   declared here — the package graph is a strict DAG (`contracts ← page ← runtime ← framework`).
+   declared here (or, for `URLCodec`, re-exported from the codec root) — the package graph is a
+   strict DAG (`url-codec ← contracts ← page ← runtime ← framework`).
 3. **Page-extract leaves are all synchronous field functions** (`() => value`), **present even for
    optional fields** (`FieldFns` strips optionality). A `one` binding's extract returns `FieldFns<T>`;
    a `many` binding's returns `FieldFns<T>[]`.
@@ -322,8 +379,9 @@ maps `RejectionReason → retry disposition` where fetching actually runs.
 6. **`RunnerResult` is a closed union.** The harness handles all five variants; a sixth is a compile
    error at every switch.
 7. **`validate → false` ≡ `ResponseRejection("wrong-page")`.** Categorized rejections are thrown.
-8. **An asset is a typed object** `{ url, type, format?, mimeType? }` in the data; `x-sitely-asset` is
-   schema metadata. `prepare` exists only on a `render: "dynamic"` page.
+8. **An asset is a typed object** `{ url, type, format?, mimeType? }` in the data (`format` on
+   video/audio only); `x-sitely-asset` is schema metadata. `prepare` exists only on a
+   `render: "dynamic"` page (the static arm's `prepare?: never` enforces it).
 
 ## Behaviour & edge cases
 
@@ -342,12 +400,13 @@ maps `RejectionReason → retry disposition` where fetching actually runs.
   diagnostic rather than a hard failure. The diagnostic is the signal; `fixture-coverage` also flags
   the never-populated field.
 - **A `many` extract returns `[]`** → a valid empty collection, not an error.
-- **`prepare` on a static page** → impossible by construction (the `render: "static"` arm has no
-  `prepare`); a `render: "dynamic"` page requires a dynamic backend (see [01](./01-page)).
+- **`prepare` on a static page** → a compile error (the static arm declares `prepare?: never` — mere
+  absence would not catch the render-omitted case); a `render: "dynamic"` page requires a dynamic
+  backend (see [01](./01-page), enforced by [02](./02-runtime)).
 - **An asset value** is `{ url, type, format?, mimeType? }`; `url` is the source URL, `type` the media
-  kind, `format` the transport (manifest vs file), `mimeType` the content-type when known. Consumers
-  handle manifests (`format: "hls"|"dash"`) via a streaming player; sitely does not process the media
-  package.
+  kind, `format` the transport (manifest vs file — video/audio only), `mimeType` the content-type when
+  known. Consumers handle manifests (`format: "hls"|"dash"`) via a streaming player; sitely does not
+  process the media package.
 
 ## Acceptance criteria
 
@@ -356,16 +415,25 @@ maps `RejectionReason → retry disposition` where fetching actually runs.
 - A field function whose return type doesn't match its resource's schema field → compile error (the
   field-function map is typed against `Static<schema>`).
 - A `p.many` extract returning a single object instead of an array → compile error.
-- A page's `validate` `ctx.params` and each `fixtures[i].params` typed to the path's `:segments`.
-- `Static<asset("image")>` is `{ url: string; type: "image"; format?: MediaFormat; mimeType?: string }`;
-  `asset.image(url)` matches it (proves the generic `asset<K>` carries the literal).
-- Declaring `prepare` on a `render: "static"` (or render-omitted) page → compile error.
+- A page's `validate` `ctx.params` and each `fixtures[i].params` typed to the codec's `:params`
+  (path and query).
+- `Static<asset("image")>` is `{ url: string; type: "image"; mimeType?: string }` (no `format`);
+  `Static<asset("video")>` includes `format?: MediaFormat`; `asset.image(url)` and
+  `asset.video(url, { format: "hls" })` match them (proves the generic `Asset<K>`/`asset<K>` carry
+  the literal — verified against real TypeBox).
+- Declaring `prepare` on a `render: "static"` **or render-omitted** page → compile error (the
+  `prepare?: never` in the static arm is what delivers the render-omitted half).
+- `ctx.jsonLd(iface)` is `T[]` for an `Interface<string, T>`; passing a `Resource` where an
+  `Interface` is expected → compile error (the `kind` discriminant).
 
 **Runtime:**
 
 - **Closed union:** an exhaustiveness switch over `RunnerResult` compiles with no `default`.
 - **Schema boundary:** `validateExtraction` accepts what `Static<schema>` admits and rejects what it
-  doesn't; `asset(...)`/`presence(...)` emit the documented keywords.
+  doesn't, returning bare `SchemaIssue`s that the runner decorates into `ValidationIssue`s
+  (`resource`/`output`/`index`); `asset(...)`/`presence(...)` emit the documented keywords.
+- **Parsed JSON-LD:** `ctx.jsonLd(iface)` returns only entities matching `iface.name` that validate
+  against `iface.schema`, in document order; non-conforming entities are dropped.
 - **Cardinality:** a `one` binding validates its single item; a `many` binding validates each element.
 - **Field isolation:** a throwing field function yields a `FieldDiagnostic` (with `reason` from the
   thrown class, and item index for `many`) while siblings resolve; the run is `ok` unless the absence

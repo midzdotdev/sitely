@@ -32,6 +32,7 @@ export default withMermaid(
 						text: "Implementation plan",
 						items: [
 							{ text: "Overview", link: "/plan/" },
+							{ text: "05 · URL codec (built first)", link: "/plan/05-url-codec" },
 							{ text: "00 · Contracts", link: "/plan/00-contracts" },
 							{ text: "01 · @sitely/page", link: "/plan/01-page" },
 							{ text: "02 · @sitely/runtime", link: "/plan/02-runtime" },

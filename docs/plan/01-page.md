@@ -28,9 +28,11 @@ The read/interaction interfaces (`PageElement`, `PageDriver`, `PageController`) 
 
 ### `NULL_ELEMENT`
 
-A singleton `PageElement` returning safe defaults for every method (`""`, `null`, `[]`, `false`).
+A singleton `PageElement` returning safe defaults for every method (`""`, `null`, `[]`).
 Plumbing for drivers that compose elements internally — **not** the public idiom. Extract code uses
-`ctx.$("h1")?.text() ?? ""`; `$()` returns `null` for no-match, not `NULL_ELEMENT`.
+`ctx.$("h1")?.text() ?? ""`; `$()` returns `null` for no-match, not `NULL_ELEMENT`. (There is no
+public `exists()` — no publicly obtainable element could ever return `false`, since `$`/`$$` return
+`null`/`[]` for a miss; the `null` check *is* the existence check.)
 
 ### The render lifecycle
 
@@ -51,7 +53,7 @@ interface RenderSession {
 
 interface LaunchOptions {
     timeoutMs?: number;
-    userAgent?: string;                          // threaded from snapshot/live callers; needed for auth-walled sites
+    userAgent?: string;                          // threaded from snapshot/live callers via runExtraction's `launch` opt; needed for auth-walled sites
     headers?: Record<string, string>;
 }
 ```
@@ -66,10 +68,10 @@ const driver = await session.materialize();      // frozen snapshot from here on
 await session.dispose();
 ```
 
-On a **static** backend, `session.page` methods throw `UnsupportedInteractionError`. A page can only
-declare `prepare` in its `render: "dynamic"` arm ([00](./00-contracts)), so a static page never
-interacts; the throw is belt-and-suspenders for a raw-data caller that wires a static backend to a
-dynamic page.
+On a **static** backend, `session.page` methods throw `UnsupportedInteractionError` (declared in
+[00's error taxonomy](./00-contracts), `kind: "unsupported-interaction"`). A page can only declare
+`prepare` in its `render: "dynamic"` arm ([00](./00-contracts)), so a static page never interacts;
+the throw is belt-and-suspenders for a raw-data caller that wires a static backend to a dynamic page.
 
 ### `CheerioDriver` — the static default
 
@@ -127,7 +129,7 @@ questions); the contract is only that the result is a conformant `PageDriver`.
 4. **`PageElement` is read-only.** No mutation methods exist.
 5. **`.text()` is `""` for an empty element; `.attr(x)` is `null` when absent, `""` when present and
    empty.** Distinguish a **missing** element (`$(...) === null`) from a **present-but-empty** one
-   (`.text() === ""`); `.exists()` is redundant with the `null` check on the public surface.
+   (`.text() === ""`); the `null` check is the existence check.
 6. **Interaction requires a dynamic backend.** A `render: "dynamic"` page's `prepare` runs against a
    dynamic backend; the static arm has no `prepare`, and any `PageController` call on a static session
    throws.
@@ -147,8 +149,9 @@ questions); the contract is only that the result is a conformant `PageDriver`.
 - **`prepare` throws or a `waitForSelector` times out** → the session surfaces the failure; the
   runner turns it into a `RunnerResult` (`error`, or a `rejected` reason if the author threw a
   `ResponseRejection`). The DOM is not materialized.
-- **Redirect during `launch`** → `driver.url` reflects the final URL; the driver carries the
-  redirect's `status`.
+- **Redirect during `launch`** → `driver.url` reflects the final URL; `driver.status` is the **final
+  response's** status (a followed `301 → 200` reads as `200`), which is what every `validate` status
+  check depends on.
 - **Oversized DOM** → a size cap protects the process. The cap and its enforcement are a v1 server
   concern; v0 notes it but doesn't gate on it.
 - **`dispose()` not called** (crash mid-extract) → for the dynamic backend this leaks a browser
@@ -169,8 +172,8 @@ questions); the contract is only that the result is a conformant `PageDriver`.
   `prepare` phase in CI without a live/auth site.
 - **Static rejects interaction.** A `PageController` call on a `StaticBackend` session throws
   `UnsupportedInteractionError`.
-- **Edge-case table.** `.text()`/`.attr()`/`.exists()` behave per the invariants for
-  present/empty/absent; `$`/`$$` agree on the empty case.
+- **Edge-case table.** `.text()`/`.attr()` behave per the invariants for present/empty/absent;
+  `$`/`$$` agree on the empty case.
 
 ## Open questions
 
