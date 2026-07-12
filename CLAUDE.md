@@ -94,8 +94,15 @@ HTML→Markdown prose helper · target-site auth.
 ## Pending
 
 The plan is written, reviewed (four consolidated review passes), and wired into VitePress. v0
-implementation has **not** started. When it does, begin with the **type-system spike** flagged in
-`03-framework-dsl.md`'s open questions — a types-only `.d.ts` + type-test pass over the inference
-chain (builder `const E` capture, `FieldFns<Static<schema>>`, `ExtractParams` over path+query,
-`Page<E>` erasure), using the Hacker News site definition as its test case — and the codec
-implementation (05), in that order.
+implementation has **not** started, but the build is now **charted as a wayfinder map** on GitHub
+Issues — **[#2 · sitely v0 — the build map](https://github.com/midzdotdev/sitely/issues/2)** is the
+plan-of-record for execution (tracker ops: `docs/agents/issue-tracker.md` § Wayfinding operations).
+Work it **one ticket per session** with `/wayfinder` — claim before working, then the ticket's
+approach-gate (grill) → implement → verify.
+
+The frontier opens at **#3 · scaffold the monorepo toolchain**, which unblocks the two parallel
+roots: **#4 · the URL codec (05)** and **#5 · the type-system spike** — a types-only `.d.ts` +
+type-test pass over the inference chain (builder `const E` capture, `FieldFns<Static<schema>>`,
+`ExtractParams` over path+query, `Page<E>` erasure), using the Hacker News site definition as its
+test case. The spike feeds **#6 · the TypeBox package pin** (`@sinclair/typebox@0.34.52` vs
+`typebox@1.3.6`), still open.
