@@ -6,3 +6,5 @@ node_modules
 docs/.vitepress/dist
 docs/.vitepress/cache
 .lycheecache
+coverage
+*.tsbuildinfo
