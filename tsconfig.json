@@ -1,0 +1,6 @@
+{
+	"$schema": "https://json.schemastore.org/tsconfig",
+	"//": "Root config for editors and the vitest type-check pass. The typecheck GATE is per-package (`pnpm -r typecheck`); this aggregates the same sources for tooling.",
+	"extends": "./tsconfig.base.json",
+	"include": ["packages/*/src", "packages/*/test", "vitest.config.ts"]
+}
