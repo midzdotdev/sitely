@@ -42,6 +42,10 @@ interface Resource<Name extends string = string, T = unknown> {
     readonly key?: string;                     // identity field, for addressing a single item (v1). Typed as
                                                //   `keyof Static<S> & string` at the 03 factory; here it is plain
                                                //   `string` because with T = unknown, `keyof T & string` is `never`
+    // Phantom carrier (tsc-forced): keeps T load-bearing — without it Resource<N,X> and Resource<N,Y>
+    // collapse and the 03 builder could not type its field map against Static<schema>. Absent at
+    // runtime; mirrors Interface.__static.
+    readonly __item?: T;
 }
 
 // FieldFns — every field has a SYNCHRONOUS resolver, present even for optional fields (`-?` strips
@@ -221,7 +225,10 @@ then each alias (first match wins); `toUrl` always emits the **canonical** form.
 expose the same `TParams` (enforced at construction — a mismatch throws at `urlCodec(…)`).
 
 ```ts
-interface URLCodec<TParams extends Record<string, string> = Record<string, string>> {
+// TParams is unconstrained (default kept). A `TParams extends Record<string, string>` bound is
+// unsatisfiable by `URLCodec<ExtractParams<P>>` for a generic `P` — a template-literal-derived type is
+// opaque to the constraint checker. tsc-forced refinement of the 05 spec; every produced value is a string map.
+interface URLCodec<TParams = Record<string, string>> {
     readonly canonical: string;                // the canonical pattern; toUrl builds from this
     readonly aliases: readonly string[];       // extra match-only patterns converging on canonical (may be empty)
     readonly paramsSchema?: Readonly<Partial<Record<keyof TParams, JsonSchema>>>;   // per-param metadata; doc/generation only, no match-time
@@ -336,7 +343,10 @@ One coherent taxonomy with parity across the three failure layers. The one runti
 class carries a stable, **enumerated** `kind`, so any layer can `switch (err.kind)`.
 
 ```ts
-class FrameworkError extends Error { readonly kind: string }
+// FrameworkError is abstract (tsc-forced): it is never thrown directly, and a bare `readonly kind: string`
+// cannot satisfy strictPropertyInitialization under useDefineForClassFields — so the root declares an
+// `abstract readonly kind` that each concrete subclass provides (with `override`).
+abstract class FrameworkError extends Error { abstract readonly kind: string }
 
 // Response layer — the page/response is wrong or blocking. `validate → false` is sugar for
 // ResponseRejection("wrong-page"); authors throw a categorized reason from validate/extract.
