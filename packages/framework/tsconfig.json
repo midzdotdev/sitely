@@ -1,4 +1,8 @@
 {
 	"extends": "../../tsconfig.base.json",
+	"comment": "SPIKE #5 finding: `dom` supplies WHATWG `URL`, referenced by the re-exported URLCodec the DSL pulls in (absent from base es2023). 03/#10 needs this too; mirrors packages/contracts + url-codec.",
+	"compilerOptions": {
+		"lib": ["es2023", "dom"]
+	},
 	"include": ["src", "test"]
 }
